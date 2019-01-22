@@ -2,16 +2,16 @@ import { tuple } from 'fp-ts/lib/function'
 import * as F from 'prettier'
 import * as M from './model'
 
-const getTypeParameters = (d: M.Introduction): string => {
-  if (d.parameters.length === 0) {
+const getTypeParameters = (parameters: Array<string>): string => {
+  if (parameters.length === 0) {
     return ''
   } else {
-    return `<${d.parameters.join(', ')}>`
+    return `<${parameters.join(', ')}>`
   }
 }
 
 export const definition = (d: M.Introduction): string => {
-  return d.name + getTypeParameters(d)
+  return d.name + getTypeParameters(d.parameters)
 }
 
 const toDefinition = (t: M.Type): M.Introduction => {
@@ -97,7 +97,7 @@ const getConstructor = (c: M.Constructor, d: M.Introduction): string => {
   if (c.members.length === 0) {
     return getNullaryConstructor(c, d)
   }
-  const typeParameters = getTypeParameters(d)
+  const typeParameters = getTypeParameters(d.parameters)
   const parameters = c.members.map((f, i) => member(f, i))
   const returnType = definition(d)
   const returnValue =
@@ -137,7 +137,7 @@ export const fold = (d: M.Data): string => {
   }
   const returnType = getFoldReturnTypeParameterName(d.introduction)
   const name = `fold${d.introduction.name}L`
-  const typeParameters = `<${d.introduction.parameters.join(', ')}, ${returnType}>`
+  const typeParameters = getTypeParameters([...d.introduction.parameters, returnType])
   const parameters: Array<[string, string]> = [tuple('fa', definition(d.introduction))].concat(
     d.constructors.toArray().map(c => {
       const name = getHandlerName(c)

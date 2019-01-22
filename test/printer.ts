@@ -104,6 +104,14 @@ describe('printer', () => {
         'export const foldTL = <R, R1>(fa: T<R>, onC1: () => R1, onC2: () => R1): R1 => { switch (fa.type) { case "C1" : return onC1(); case "C2" : return onC2() } }'
       )
     })
+
+    it('should handle monomorphic data', () => {
+      const printer = P.fold
+      assert.strictEqual(
+        printer(H.FooBar),
+        'export const foldFooBarL = <R>(fa: FooBar, onFoo: () => R, onBar: () => R): R => { switch (fa.type) { case "Foo" : return onFoo(); case "Bar" : return onBar() } }'
+      )
+    })
   })
 
   describe('print', () => {
