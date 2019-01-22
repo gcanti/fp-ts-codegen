@@ -29,7 +29,7 @@ export const some = <A>(value0: A): Option<A> => {
   }
 }
 
-export const fold = <A, R>(fa: Option<A>, onNone: R, onSome: (value0: A) => R): R => {
+export function fold<A, R>(fa: Option<A>, onNone: R, onSome: (value0: A) => R): R {
   switch (fa.type) {
     case 'None':
       return onNone
@@ -38,7 +38,7 @@ export const fold = <A, R>(fa: Option<A>, onNone: R, onSome: (value0: A) => R): 
   }
 }
 
-export const foldL = <A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) => R): R => {
+export function foldL<A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) => R): R {
   switch (fa.type) {
     case 'None':
       return onNone()
@@ -80,7 +80,7 @@ export const just = <A>(value: A): Maybe<A> => {
   }
 }
 
-export const fold = <A, R>(fa: Maybe<A>, onNothing: R, onJust: (value: A) => R): R => {
+export function fold<A, R>(fa: Maybe<A>, onNothing: R, onJust: (value: A) => R): R {
   switch (fa.type) {
     case 'Nothing':
       return onNothing
@@ -89,7 +89,7 @@ export const fold = <A, R>(fa: Maybe<A>, onNothing: R, onJust: (value: A) => R):
   }
 }
 
-export const foldL = <A, R>(fa: Maybe<A>, onNothing: () => R, onJust: (value: A) => R): R => {
+export function foldL<A, R>(fa: Maybe<A>, onNothing: () => R, onJust: (value: A) => R): R {
   switch (fa.type) {
     case 'Nothing':
       return onNothing()
@@ -101,9 +101,10 @@ export const foldL = <A, R>(fa: Maybe<A>, onNothing: () => R, onJust: (value: A)
 
 # Modules
 
+- `ast` module: internal model -> TypeScript AST
 - `model` module: internal model
-- `parser` module: haskell-like syntax -> internal model
 - `printer` module: internal model -> TypeScript code
+- `parser` module: haskell-like syntax -> internal model
 - `index` module: haskell-like syntax -> TypeScript code
 
 # Roadmap
