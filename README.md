@@ -39,6 +39,48 @@ export const foldOptionL = <A, R>(fa: Option<A>, onNone: () => R, onSome: (value
 }
 ```
 
+# Named members
+
+Syntax: `<name>:<type>`
+
+Example
+
+```ts
+//                             named member ---v
+console.log(run('data Maybe A = Nothing | Just value:A'))
+```
+
+Output
+
+```ts
+export type Maybe<A> =
+  | {
+      readonly type: 'Nothing'
+    }
+  | {
+      readonly type: 'Just'
+      readonly value: A
+    }
+
+export const nothing: Maybe<never> = { type: 'Nothing' }
+
+export const just = <A>(value: A): Maybe<A> => {
+  return {
+    type: 'Just',
+    value
+  }
+}
+
+export const foldMaybeL = <A, R>(fa: Maybe<A>, onNothing: () => R, onJust: (value: A) => R): R => {
+  switch (fa.type) {
+    case 'Nothing':
+      return onNothing()
+    case 'Just':
+      return onJust(fa.value)
+  }
+}
+```
+
 # Modules
 
 - `model` module: internal model
