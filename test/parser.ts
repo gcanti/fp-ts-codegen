@@ -17,7 +17,7 @@ const assertSuccess = <A>(parser: Parser<A>, input: string, expected: A) => {
 const assertFailure = <A>(parser: Parser<A>, input: string, expected: string) => {
   const result = parser.run(input)
   if (result.isLeft()) {
-    assert.deepStrictEqual(`Expected ${result.value.message}, got ${JSON.stringify(result.value.remaining)}`, expected)
+    assert.deepStrictEqual(result.value.message, expected)
   } else {
     throw new Error(`${result} is not a left`)
   }

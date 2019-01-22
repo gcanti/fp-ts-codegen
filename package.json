@@ -29,8 +29,8 @@
   },
   "homepage": "https://github.com/gcanti/fp-ts-codegen",
   "dependencies": {
-    "fp-ts": "^1.12.3",
-    "parser-ts": "^0.5.0"
+    "fp-ts": "^1.13.0",
+    "parser-ts": "^0.5.1"
   },
   "devDependencies": {
     "@types/jest": "^23.3.13",
