@@ -90,20 +90,18 @@ describe('printer', () => {
       )
     })
 
-    it('nullary constructors', () => {
+    it('should not emit a fold if data is not a sum type', () => {
       const printer = P.fold
-      assert.strictEqual(printer(H.FooBar), '')
+      assert.strictEqual(printer(H.User), '')
     })
 
     it('should choose a unused return type', () => {
       const printer = P.fold
       assert.strictEqual(
-        printer(M.data(M.introduction('T', ['R']), new NonEmptyArray(M.constructor('C1', []), []))),
-        'export const foldTL = <R, R1>(fa: T<R>, onC1: () => R1): R1 => { switch (fa.type) { case "C1" : return onC1() } }'
-      )
-      assert.strictEqual(
-        printer(M.data(M.introduction('T', ['R', 'R1']), new NonEmptyArray(M.constructor('C1', []), []))),
-        'export const foldTL = <R, R1, R2>(fa: T<R, R1>, onC1: () => R2): R2 => { switch (fa.type) { case "C1" : return onC1() } }'
+        printer(
+          M.data(M.introduction('T', ['R']), new NonEmptyArray(M.constructor('C1', []), [M.constructor('C2', [])]))
+        ),
+        'export const foldTL = <R, R1>(fa: T<R>, onC1: () => R1, onC2: () => R1): R1 => { switch (fa.type) { case "C1" : return onC1(); case "C2" : return onC2() } }'
       )
     })
   })

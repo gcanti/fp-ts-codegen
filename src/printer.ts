@@ -132,7 +132,7 @@ const getFoldReturnTypeParameterName = (i: M.Introduction): string => {
 }
 
 export const fold = (d: M.Data): string => {
-  if (d.introduction.parameters.length === 0) {
+  if (d.constructors.length() === 1) {
     return ''
   }
   const returnType = getFoldReturnTypeParameterName(d.introduction)
