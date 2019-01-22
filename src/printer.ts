@@ -36,6 +36,10 @@ export const member = (f: M.Member, position: number): [string, string] => {
 }
 
 const objectType = (fields: Array<[string, string]>): string => {
+  return '{\n' + fields.map(([name, value]) => `readonly ${name}: ${value}`).join(', ') + '\n}'
+}
+
+const objectValue = (fields: Array<[string, string]>): string => {
   return '{\n' + fields.map(([name, value]) => (name === value ? name : `${name}: ${value}`)).join(', ') + '\n}'
 }
 
@@ -98,7 +102,7 @@ const getConstructor = (c: M.Constructor, d: M.Introduction): string => {
   const returnType = definition(d)
   const returnValue =
     'return ' +
-    objectType(
+    objectValue(
       [tuple('type', JSON.stringify(c.name))].concat(
         c.members.map((f, i) => {
           const name = getMemberName(f, i)

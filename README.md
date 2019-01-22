@@ -13,11 +13,11 @@ Output
 ```ts
 export type Option<A> =
   | {
-      type: 'None'
+      readonly type: 'None'
     }
   | {
-      type: 'Some'
-      value0: A
+      readonly type: 'Some'
+      readonly value0: A
     }
 
 export const none: Option<never> = { type: 'None' }

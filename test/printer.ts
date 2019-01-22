@@ -16,30 +16,36 @@ describe('printer', () => {
       const printer = P.data
       assert.strictEqual(
         printer(H.Option),
-        'export type Option<A> = {\ntype: "None"\n} | {\ntype: "Some", value0: A\n}'
+        'export type Option<A> = {\nreadonly type: "None"\n} | {\nreadonly type: "Some", readonly value0: A\n}'
       )
       assert.strictEqual(
         printer(H.Either),
-        'export type Either<L, A> = {\ntype: "Left", value0: L\n} | {\ntype: "Right", value0: A\n}'
+        'export type Either<L, A> = {\nreadonly type: "Left", readonly value0: L\n} | {\nreadonly type: "Right", readonly value0: A\n}'
       )
       assert.strictEqual(
         printer(H.Tree),
-        'export type Tree<A> = {\ntype: "Leaf"\n} | {\ntype: "Node", value0: Tree<A>, value1: A, value2: Tree<A>\n}'
+        'export type Tree<A> = {\nreadonly type: "Leaf"\n} | {\nreadonly type: "Node", readonly value0: Tree<A>, readonly value1: A, readonly value2: Tree<A>\n}'
       )
     })
 
     it('nullary constructors', () => {
       const printer = P.data
-      assert.strictEqual(printer(H.FooBar), 'export type FooBar = {\ntype: "Foo"\n} | {\ntype: "Bar"\n}')
+      assert.strictEqual(
+        printer(H.FooBar),
+        'export type FooBar = {\nreadonly type: "Foo"\n} | {\nreadonly type: "Bar"\n}'
+      )
     })
   })
 
   describe('constructors', () => {
     it('constructor', () => {
       const printer = P.constructor
-      assert.strictEqual(printer(H.None), '{\ntype: "None"\n}')
-      assert.strictEqual(printer(H.Some), '{\ntype: "Some", value0: A\n}')
-      assert.strictEqual(printer(H.Node), '{\ntype: "Node", value0: Tree<A>, value1: A, value2: Tree<A>\n}')
+      assert.strictEqual(printer(H.None), '{\nreadonly type: "None"\n}')
+      assert.strictEqual(printer(H.Some), '{\nreadonly type: "Some", readonly value0: A\n}')
+      assert.strictEqual(
+        printer(H.Node),
+        '{\nreadonly type: "Node", readonly value0: Tree<A>, readonly value1: A, readonly value2: Tree<A>\n}'
+      )
     })
 
     it('constructors', () => {
@@ -96,11 +102,11 @@ describe('printer', () => {
         printer(H.Option),
         `export type Option<A> =
   | {
-      type: 'None'
+      readonly type: 'None'
     }
   | {
-      type: 'Some'
-      value0: A
+      readonly type: 'Some'
+      readonly value0: A
     }
 
 export const none: Option<never> = { type: 'None' }
@@ -130,11 +136,11 @@ export const foldOptionL = <A, R>(fa: Option<A>, onNone: () => R, onSome: (value
         printer(H.Maybe),
         `export type Maybe<A> =
   | {
-      type: 'Nothing'
+      readonly type: 'Nothing'
     }
   | {
-      type: 'Just'
-      value: A
+      readonly type: 'Just'
+      readonly value: A
     }
 
 export const nothing: Maybe<never> = { type: 'Nothing' }
