@@ -2,7 +2,6 @@ import * as assert from 'assert'
 import * as P from '../src/printer'
 import * as M from '../src/model'
 import * as H from './helpers'
-import { NonEmptyArray } from 'fp-ts/lib/NonEmptyArray'
 
 describe('printer', () => {
   describe('data', () => {
@@ -21,7 +20,7 @@ describe('printer', () => {
       )
       assert.strictEqual(
         printer(H.Either),
-        'export type Either<L, A> = {\nreadonly type: "Left", readonly value0: L\n} | {\nreadonly type: "Right", readonly value0: A\n}'
+        'export type Either<L, R> = {\nreadonly type: "Left", readonly value0: L\n} | {\nreadonly type: "Right", readonly value0: R\n}'
       )
       assert.strictEqual(
         printer(H.Tree),
@@ -56,8 +55,8 @@ describe('printer', () => {
         'export const some = <A>(value0: A): Option<A> => { return {\ntype: "Some", value0\n} }'
       ])
       assert.deepStrictEqual(printer(H.Either), [
-        'export const left = <L, A>(value0: L): Either<L, A> => { return {\ntype: "Left", value0\n} }',
-        'export const right = <L, A>(value0: A): Either<L, A> => { return {\ntype: "Right", value0\n} }'
+        'export const left = <L, R>(value0: L): Either<L, R> => { return {\ntype: "Left", value0\n} }',
+        'export const right = <L, R>(value0: R): Either<L, R> => { return {\ntype: "Right", value0\n} }'
       ])
       assert.deepStrictEqual(printer(H.Tree), [
         'export const leaf: Tree<never> = { type: "Leaf" }',
@@ -82,35 +81,31 @@ describe('printer', () => {
   })
 
   describe('fold', () => {
-    it('lazy positional fold', () => {
-      const printer = P.fold
-      assert.strictEqual(
-        printer(H.Option),
-        'export const foldL = <A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) => R): R => { switch (fa.type) { case "None" : return onNone(); case "Some" : return onSome(fa.value0) } }'
-      )
-    })
-
     it('should not emit a fold if data is not a sum type', () => {
       const printer = P.fold
-      assert.strictEqual(printer(H.User), '')
+      assert.deepStrictEqual(printer(H.User), [])
+    })
+
+    it('should not emit a fold if all constructors are not nullary', () => {
+      const printer = P.fold
+      assert.deepStrictEqual(printer(H.Either), [
+        'export const fold = <L, R, R1>(fa: Either<L, R>, onLeft: (value0: L) => R1, onRight: (value0: R) => R1): R1 => { switch (fa.type) { case "Left" : return onLeft(fa.value0); case "Right" : return onRight(fa.value0) } }'
+      ])
     })
 
     it('should choose a unused return type', () => {
       const printer = P.fold
-      assert.strictEqual(
-        printer(
-          M.data(M.introduction('T', ['R']), new NonEmptyArray(M.constructor('C1', []), [M.constructor('C2', [])]))
-        ),
-        'export const foldL = <R, R1>(fa: T<R>, onC1: () => R1, onC2: () => R1): R1 => { switch (fa.type) { case "C1" : return onC1(); case "C2" : return onC2() } }'
-      )
+      assert.deepStrictEqual(printer(H.Either), [
+        'export const fold = <L, R, R1>(fa: Either<L, R>, onLeft: (value0: L) => R1, onRight: (value0: R) => R1): R1 => { switch (fa.type) { case "Left" : return onLeft(fa.value0); case "Right" : return onRight(fa.value0) } }'
+      ])
     })
 
     it('should handle monomorphic data', () => {
       const printer = P.fold
-      assert.strictEqual(
-        printer(H.FooBar),
+      assert.deepStrictEqual(printer(H.FooBar), [
+        'export const fold = <R>(fa: FooBar, onFoo: R, onBar: R): R => { switch (fa.type) { case "Foo" : return onFoo; case "Bar" : return onBar } }',
         'export const foldL = <R>(fa: FooBar, onFoo: () => R, onBar: () => R): R => { switch (fa.type) { case "Foo" : return onFoo(); case "Bar" : return onBar() } }'
-      )
+      ])
     })
   })
 
@@ -134,6 +129,15 @@ export const some = <A>(value0: A): Option<A> => {
   return {
     type: 'Some',
     value0
+  }
+}
+
+export const fold = <A, R>(fa: Option<A>, onNone: R, onSome: (value0: A) => R): R => {
+  switch (fa.type) {
+    case 'None':
+      return onNone
+    case 'Some':
+      return onSome(fa.value0)
   }
 }
 
@@ -168,6 +172,15 @@ export const just = <A>(value: A): Maybe<A> => {
   return {
     type: 'Just',
     value
+  }
+}
+
+export const fold = <A, R>(fa: Maybe<A>, onNothing: R, onJust: (value: A) => R): R => {
+  switch (fa.type) {
+    case 'Nothing':
+      return onNothing
+    case 'Just':
+      return onJust(fa.value)
   }
 }
 

@@ -25,9 +25,9 @@ export const Maybe = M.data(
 
 // data Either L A = Left L | Right A
 export const Either = M.data(
-  M.introduction('Either', ['L', 'A']),
+  M.introduction('Either', ['L', 'R']),
   new NonEmptyArray(M.constructor('Left', [M.positionalMember(M.type('L'))]), [
-    M.constructor('Right', [M.positionalMember(M.type('A'))])
+    M.constructor('Right', [M.positionalMember(M.type('R'))])
   ])
 )
 

@@ -79,7 +79,7 @@ describe('parser', () => {
   it('data', () => {
     const parser = P.data
     assertSuccess(parser, 'data Option A = None | Some A', H.Option)
-    assertSuccess(parser, 'data Either L A = Left L | Right A', H.Either)
+    assertSuccess(parser, 'data Either L R = Left L | Right R', H.Either)
     assertSuccess(parser, 'data Tree A = Leaf | Node (Tree A) A (Tree A)', H.Tree)
     assertSuccess(parser, 'data Maybe A = Nothing | Just value:A', H.Maybe)
   })

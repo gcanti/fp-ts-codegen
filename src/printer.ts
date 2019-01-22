@@ -131,29 +131,50 @@ const getFoldReturnTypeParameterName = (i: M.Introduction): string => {
   return candidate
 }
 
-export const fold = (d: M.Data): string => {
-  if (d.constructors.length() === 1) {
-    return ''
-  }
+const isNullaryConstructor = (c: M.Constructor): boolean => {
+  return c.members.length === 0
+}
+
+const admitsEagerFold = (d: M.Data): boolean => {
+  return d.constructors.toArray().some(isNullaryConstructor)
+}
+
+const isSumType = (d: M.Data): boolean => {
+  return d.constructors.length() > 1
+}
+
+const getFold = (d: M.Data, name: string, eager: boolean): string => {
   const returnType = getFoldReturnTypeParameterName(d.introduction)
-  const name = `foldL`
   const typeParameters = getTypeParameters([...d.introduction.parameters, returnType])
   const parameters: Array<[string, string]> = [tuple('fa', definition(d.introduction))].concat(
     d.constructors.toArray().map(c => {
       const name = getHandlerName(c)
       const parameters = c.members.map((f, i) => member(f, i))
-      return tuple(name, getFunctionType('', parameters, returnType, true))
+      const handler = eager && isNullaryConstructor(c) ? returnType : getFunctionType('', parameters, returnType, true)
+      return tuple(name, handler)
     })
   )
   const returnValue = `switch (fa.type) { ${d.constructors
     .toArray()
     .map(c => {
-      return `case ${JSON.stringify(c.name)} : return ${getHandlerName(c)}(${c.members.map(
-        (f, i) => `fa.${getMemberName(f, i)}`
-      )})`
+      const handler =
+        eager && isNullaryConstructor(c)
+          ? getHandlerName(c)
+          : `${getHandlerName(c)}(${c.members.map((f, i) => `fa.${getMemberName(f, i)}`)})`
+      return `case ${JSON.stringify(c.name)} : return ${handler}`
     })
     .join('; ')} }`
   return getFunctionDefinition(name, typeParameters, parameters, returnType, returnValue)
+}
+
+export const fold = (d: M.Data): Array<string> => {
+  if (!isSumType(d)) {
+    return []
+  }
+  if (admitsEagerFold(d)) {
+    return [getFold(d, 'fold', true), getFold(d, 'foldL', false)]
+  }
+  return [getFold(d, 'fold', false)]
 }
 
 const defaultOptions: Options = {
@@ -173,6 +194,6 @@ export const print = (d: M.Data): string => {
   const dataCode = data(d)
   const constructorsCode = constructors(d)
   const foldCode = fold(d)
-  const code = [dataCode, ...constructorsCode, foldCode].join('\n\n')
+  const code = [dataCode, ...constructorsCode, ...foldCode].join('\n\n')
   return F.format(code, defaultOptions.prettier)
 }
