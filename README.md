@@ -29,7 +29,7 @@ export const some = <A>(value0: A): Option<A> => {
   }
 }
 
-export const foldOptionL = <A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) => R): R => {
+export const foldL = <A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) => R): R => {
   switch (fa.type) {
     case 'None':
       return onNone()
@@ -71,7 +71,7 @@ export const just = <A>(value: A): Maybe<A> => {
   }
 }
 
-export const foldMaybeL = <A, R>(fa: Maybe<A>, onNothing: () => R, onJust: (value: A) => R): R => {
+export const foldL = <A, R>(fa: Maybe<A>, onNothing: () => R, onJust: (value: A) => R): R => {
   switch (fa.type) {
     case 'Nothing':
       return onNothing()

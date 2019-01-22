@@ -86,7 +86,7 @@ describe('printer', () => {
       const printer = P.fold
       assert.strictEqual(
         printer(H.Option),
-        'export const foldOptionL = <A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) => R): R => { switch (fa.type) { case "None" : return onNone(); case "Some" : return onSome(fa.value0) } }'
+        'export const foldL = <A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) => R): R => { switch (fa.type) { case "None" : return onNone(); case "Some" : return onSome(fa.value0) } }'
       )
     })
 
@@ -101,7 +101,7 @@ describe('printer', () => {
         printer(
           M.data(M.introduction('T', ['R']), new NonEmptyArray(M.constructor('C1', []), [M.constructor('C2', [])]))
         ),
-        'export const foldTL = <R, R1>(fa: T<R>, onC1: () => R1, onC2: () => R1): R1 => { switch (fa.type) { case "C1" : return onC1(); case "C2" : return onC2() } }'
+        'export const foldL = <R, R1>(fa: T<R>, onC1: () => R1, onC2: () => R1): R1 => { switch (fa.type) { case "C1" : return onC1(); case "C2" : return onC2() } }'
       )
     })
 
@@ -109,7 +109,7 @@ describe('printer', () => {
       const printer = P.fold
       assert.strictEqual(
         printer(H.FooBar),
-        'export const foldFooBarL = <R>(fa: FooBar, onFoo: () => R, onBar: () => R): R => { switch (fa.type) { case "Foo" : return onFoo(); case "Bar" : return onBar() } }'
+        'export const foldL = <R>(fa: FooBar, onFoo: () => R, onBar: () => R): R => { switch (fa.type) { case "Foo" : return onFoo(); case "Bar" : return onBar() } }'
       )
     })
   })
@@ -137,7 +137,7 @@ export const some = <A>(value0: A): Option<A> => {
   }
 }
 
-export const foldOptionL = <A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) => R): R => {
+export const foldL = <A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) => R): R => {
   switch (fa.type) {
     case 'None':
       return onNone()
@@ -171,7 +171,7 @@ export const just = <A>(value: A): Maybe<A> => {
   }
 }
 
-export const foldMaybeL = <A, R>(fa: Maybe<A>, onNothing: () => R, onJust: (value: A) => R): R => {
+export const foldL = <A, R>(fa: Maybe<A>, onNothing: () => R, onJust: (value: A) => R): R => {
   switch (fa.type) {
     case 'Nothing':
       return onNothing()

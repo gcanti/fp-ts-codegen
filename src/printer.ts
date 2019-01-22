@@ -136,7 +136,7 @@ export const fold = (d: M.Data): string => {
     return ''
   }
   const returnType = getFoldReturnTypeParameterName(d.introduction)
-  const name = `fold${d.introduction.name}L`
+  const name = `foldL`
   const typeParameters = getTypeParameters([...d.introduction.parameters, returnType])
   const parameters: Array<[string, string]> = [tuple('fa', definition(d.introduction))].concat(
     d.constructors.toArray().map(c => {
