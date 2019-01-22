@@ -2,6 +2,7 @@ import * as assert from 'assert'
 import * as P from '../src/printer'
 import * as M from '../src/model'
 import * as H from './helpers'
+import { NonEmptyArray } from 'fp-ts/lib/NonEmptyArray'
 
 describe('printer', () => {
   describe('data', () => {
@@ -83,7 +84,7 @@ describe('printer', () => {
   describe('fold', () => {
     it('lazy positional fold', () => {
       const printer = P.fold
-      assert.deepStrictEqual(
+      assert.strictEqual(
         printer(H.Option),
         'export const foldOptionL = <A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) => R): R => { switch (fa.type) { case "None" : return onNone(); case "Some" : return onSome(fa.value0) } }'
       )
@@ -91,7 +92,19 @@ describe('printer', () => {
 
     it('nullary constructors', () => {
       const printer = P.fold
-      assert.deepStrictEqual(printer(H.FooBar), '')
+      assert.strictEqual(printer(H.FooBar), '')
+    })
+
+    it('should choose a unused return type', () => {
+      const printer = P.fold
+      assert.strictEqual(
+        printer(M.data(M.introduction('T', ['R']), new NonEmptyArray(M.constructor('C1', []), []))),
+        'export const foldTL = <R, R1>(fa: T<R>, onC1: () => R1): R1 => { switch (fa.type) { case "C1" : return onC1() } }'
+      )
+      assert.strictEqual(
+        printer(M.data(M.introduction('T', ['R', 'R1']), new NonEmptyArray(M.constructor('C1', []), []))),
+        'export const foldTL = <R, R1, R2>(fa: T<R, R1>, onC1: () => R2): R2 => { switch (fa.type) { case "C1" : return onC1() } }'
+      )
     })
   })
 

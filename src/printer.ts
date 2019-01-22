@@ -121,20 +121,30 @@ const getHandlerName = (c: M.Constructor): string => {
   return `on${c.name}`
 }
 
+const getFoldReturnTypeParameterName = (i: M.Introduction): string => {
+  const base = 'R'
+  let candidate = base
+  let counter = 0
+  while (i.parameters.indexOf(candidate) !== -1) {
+    candidate = base + ++counter
+  }
+  return candidate
+}
+
 export const fold = (d: M.Data): string => {
   if (d.introduction.parameters.length === 0) {
     return ''
   }
+  const returnType = getFoldReturnTypeParameterName(d.introduction)
   const name = `fold${d.introduction.name}L`
-  const typeParameters = `<${d.introduction.parameters.join(', ')}, R>`
+  const typeParameters = `<${d.introduction.parameters.join(', ')}, ${returnType}>`
   const parameters: Array<[string, string]> = [tuple('fa', definition(d.introduction))].concat(
     d.constructors.toArray().map(c => {
       const name = getHandlerName(c)
       const parameters = c.members.map((f, i) => member(f, i))
-      return tuple(name, getFunctionType('', parameters, 'R', true))
+      return tuple(name, getFunctionType('', parameters, returnType, true))
     })
   )
-  const returnType = 'R'
   const returnValue = `switch (fa.type) { ${d.constructors
     .toArray()
     .map(c => {
@@ -160,5 +170,9 @@ interface Options {
 }
 
 export const print = (d: M.Data): string => {
-  return F.format(data(d) + '\n\n' + constructors(d).join('\n\n') + '\n\n' + fold(d), defaultOptions.prettier)
+  const dataCode = data(d)
+  const constructorsCode = constructors(d)
+  const foldCode = fold(d)
+  const code = [dataCode, ...constructorsCode, foldCode].join('\n\n')
+  return F.format(code, defaultOptions.prettier)
 }
