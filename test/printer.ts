@@ -65,6 +65,13 @@ describe('printer', () => {
         'export const bar: FooBar = { type: "Bar" }'
       ])
     })
+
+    it('monomorphic constructors', () => {
+      const printer = P.constructors
+      assert.deepStrictEqual(printer(H.User), [
+        'export const user = (name: string, surname: string): User => { return {\ntype: "User", name, surname\n} }'
+      ])
+    })
   })
 
   describe('fold', () => {

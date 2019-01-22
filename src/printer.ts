@@ -3,15 +3,15 @@ import * as F from 'prettier'
 import * as M from './model'
 
 const getTypeParameters = (d: M.Introduction): string => {
-  return `<${d.parameters.join(', ')}>`
+  if (d.parameters.length === 0) {
+    return ''
+  } else {
+    return `<${d.parameters.join(', ')}>`
+  }
 }
 
 export const definition = (d: M.Introduction): string => {
-  let s = d.name
-  if (d.parameters.length > 0) {
-    s += getTypeParameters(d)
-  }
-  return s
+  return d.name + getTypeParameters(d)
 }
 
 const toDefinition = (t: M.Type): M.Introduction => {

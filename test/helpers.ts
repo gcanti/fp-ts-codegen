@@ -39,3 +39,12 @@ export const FooBar = M.data(
   M.introduction('FooBar', []),
   new NonEmptyArray(M.constructor('Foo', []), [M.constructor('Bar', [])])
 )
+
+// data User = User name:string surname:string
+export const User = M.data(
+  M.introduction('User', []),
+  new NonEmptyArray(
+    M.constructor('User', [M.namedMember('name', M.type('string')), M.namedMember('surname', M.type('string'))]),
+    []
+  )
+)
