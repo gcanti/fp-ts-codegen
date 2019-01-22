@@ -22,11 +22,8 @@ export type Option<A> =
 
 export const none: Option<never> = { type: 'None' }
 
-export const some = <A>(value0: A): Option<A> => {
-  return {
-    type: 'Some',
-    value0
-  }
+export function some<A>(value0: A): Option<A> {
+  return { type: 'Some', value0 }
 }
 
 export function fold<A, R>(fa: Option<A>, onNone: R, onSome: (value0: A) => R): R {
@@ -73,11 +70,8 @@ export type Maybe<A> =
 
 export const nothing: Maybe<never> = { type: 'Nothing' }
 
-export const just = <A>(value: A): Maybe<A> => {
-  return {
-    type: 'Just',
-    value
-  }
+export function just<A>(value: A): Maybe<A> {
+  return { type: 'Just', value }
 }
 
 export function fold<A, R>(fa: Maybe<A>, onNothing: R, onJust: (value: A) => R): R {
