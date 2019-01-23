@@ -1,4 +1,5 @@
 import { NonEmptyArray } from 'fp-ts/lib/NonEmptyArray'
+import { Option, none } from 'fp-ts/lib/Option'
 
 export type Identifier = string
 
@@ -25,9 +26,14 @@ export interface Constructor {
   members: Array<Member>
 }
 
+export interface Parameter {
+  name: Identifier
+  constraint: Option<Type>
+}
+
 export interface Introduction {
   name: Identifier
-  parameters: Array<Identifier>
+  parameters: Array<Parameter>
 }
 
 export interface Data {
@@ -51,17 +57,22 @@ export const namedMember = (name: Identifier, type: Type): Member => ({
   type
 })
 
-export const constructor = (name: Identifier, members: Array<Member>): Constructor => ({
+export const constructor = (name: Identifier, members: Array<Member> = []): Constructor => ({
   name,
   members
 })
 
-export const introduction = (name: Identifier, parameters: Array<string>): Introduction => ({
+export const parameter = (name: Identifier, constraint: Option<Type> = none): Parameter => ({
+  name,
+  constraint
+})
+
+export const introduction = (name: Identifier, parameters: Array<Parameter> = []): Introduction => ({
   name,
   parameters
 })
 
-export const data = (introduction: Introduction, constructors: NonEmptyArray<Constructor>): Data => ({
+export const data = (introduction: Introduction, head: Constructor, tail: Array<Constructor>): Data => ({
   introduction,
-  constructors
+  constructors: new NonEmptyArray(head, tail)
 })

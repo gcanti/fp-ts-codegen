@@ -93,6 +93,17 @@ export function foldL<A, R>(fa: Maybe<A>, onNothing: () => R, onJust: (value: A)
 }
 ```
 
+# Constraints
+
+Syntax: `(<name> :: <constraint>)`
+
+Example
+
+```ts
+//                        constraint ---v
+console.log(run('data Constrained (A :: string) = Fetching | GotData A'))
+```
+
 # Modules
 
 - `ast` module: internal model -> TypeScript AST
