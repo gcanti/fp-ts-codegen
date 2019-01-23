@@ -11,6 +11,8 @@ console.log(run('data Option A = None | Some A'))
 Output
 
 ```ts
+/** type definition */
+
 export type Option<A> =
   | {
       readonly type: 'None'
@@ -20,12 +22,17 @@ export type Option<A> =
       readonly value0: A
     }
 
+/** constructors */
+
 export const none: Option<never> = { type: 'None' }
 
 export function some<A>(value0: A): Option<A> {
   return { type: 'Some', value0 }
 }
 
+/** match functions */
+
+//                                       eager ---v
 export function fold<A, R>(fa: Option<A>, onNone: R, onSome: (value0: A) => R): R {
   switch (fa.type) {
     case 'None':
@@ -35,6 +42,7 @@ export function fold<A, R>(fa: Option<A>, onNone: R, onSome: (value0: A) => R): 
   }
 }
 
+//                                         lazy ---v
 export function foldL<A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) => R): R {
   switch (fa.type) {
     case 'None':
