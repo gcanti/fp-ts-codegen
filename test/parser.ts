@@ -47,6 +47,7 @@ describe('parser', () => {
     const parser = P.type
     assertSuccess(parser, 'A', M.type('A', []))
     assertSuccess(parser, '(A)', M.type('A', []))
+    assertSuccess(parser, '( A )', M.type('A', []))
     assertSuccess(parser, 'A ', M.type('A', []))
     assertSuccess(parser, 'A1', M.type('A1', []))
     assertSuccess(parser, 'A\n', M.type('A', []))
@@ -76,6 +77,8 @@ describe('parser', () => {
       M.member(M.type('string'), some('foo')),
       M.member(M.type('number'), some('bar'))
     ])
+    assertSuccess(parser, '{ xs :: (Array boolean) }', [M.member(M.type('Array', [M.type('boolean')]), some('xs'))])
+    assertSuccess(parser, '{ xs :: Array boolean }', [M.member(M.type('Array', [M.type('boolean')]), some('xs'))])
   })
 
   it('constructor', () => {

@@ -19,25 +19,19 @@ export const identifier: P.Parser<string> = P.expectedL(
   remaining => `Expected an identifier, got ${JSON.stringify(remaining)}`
 )
 
-const typeWithoutParens: P.Parser<M.Type> = identifier.map(name => M.type(name, []))
+const singletonType: P.Parser<M.Type> = identifier.map(name => M.type(name))
 
-const typeWithParens: P.Parser<M.Type> = C.char('(')
-  .applySecond(S.spaces)
-  .applySecond(
-    identifier
-      .chain(name =>
-        S.spaces.applySecond(
-          P.many(type)
-            .applyFirst(S.spaces)
-            .map(types => M.type(name, types))
-        )
-      )
-      .applyFirst(C.char(')'))
-  )
+const unparenthesizedType: P.Parser<M.Type> = identifier.chain(name =>
+  S.spaces.applySecond(P.many(type).map(types => M.type(name, types)))
+)
 
-export const type: P.Parser<M.Type> = typeWithParens.alt(typeWithoutParens)
+const parenthesizedType: P.Parser<M.Type> = P.fold([C.char('('), S.spaces]).applySecond(
+  unparenthesizedType.applyFirst(P.fold([S.spaces, C.char(')')]))
+)
 
-const unnamedMember: P.Parser<M.Member> = type.map(type => M.member(type))
+export const type: P.Parser<M.Type> = parenthesizedType.alt(unparenthesizedType)
+
+const unnamedMember: P.Parser<M.Member> = parenthesizedType.alt(singletonType).map(type => M.member(type))
 
 const comma = P.fold([S.spaces, C.char(','), S.spaces])
 
