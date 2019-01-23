@@ -4,6 +4,7 @@ import * as P from '../src/parser'
 import * as M from '../src/model'
 import * as H from './helpers'
 import { right, left } from 'fp-ts/lib/Either'
+import { some } from 'fp-ts/lib/Option'
 
 const assertSuccess = <A>(parser: Parser<A>, input: string, expected: A) => {
   const result = parser.run(input)
@@ -33,6 +34,14 @@ describe('parser', () => {
     assertFailure(parser, '1', 'Expected an identifier, got "1"')
   })
 
+  it('parameter', () => {
+    const parser = P.parameter
+    assertSuccess(parser, 'A', M.parameter('A'))
+    assertSuccess(parser, '(A :: string)', M.parameter('A', some(M.type('string'))))
+    assertSuccess(parser, '( A :: string )', M.parameter('A', some(M.type('string'))))
+    assertFailure(parser, '(A)', 'Expected a constrained parameter, got ")"')
+  })
+
   it('type', () => {
     const parser = P.type
     assertSuccess(parser, 'A', M.type('A', []))
@@ -43,6 +52,7 @@ describe('parser', () => {
     assertSuccess(parser, '(Some A)', M.type('Some', [M.type('A', [])]))
     assertSuccess(parser, '(Tree A)', M.type('Tree', [M.type('A', [])]))
     assertSuccess(parser, '(Tree A)', M.type('Tree', [M.type('A', [])]))
+    assertSuccess(parser, '( Tree A )', M.type('Tree', [M.type('A', [])]))
     assertFailure(parser, '', 'Expected an identifier, got ""')
     assertFailure(parser, '1', 'Expected an identifier, got "1"')
   })
@@ -73,7 +83,7 @@ describe('parser', () => {
 
   it('introduction', () => {
     const parser = P.introduction
-    assertSuccess(parser, 'data Option A = ', M.introduction('Option', ['A']))
+    assertSuccess(parser, 'data Option A = ', M.introduction('Option', [M.parameter('A')]))
   })
 
   it('data', () => {

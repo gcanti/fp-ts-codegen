@@ -1,5 +1,6 @@
 import * as ts from 'typescript'
 import * as M from './model'
+import { none } from 'fp-ts/lib/Option'
 
 const getMemberName = (m: M.Member, position: number): string => {
   switch (m._tag) {
@@ -40,7 +41,9 @@ export const data = (d: M.Data): ts.TypeAliasDeclaration => {
     undefined,
     [ts.createModifier(ts.SyntaxKind.ExportKeyword)],
     d.introduction.name,
-    d.introduction.parameters.map(p => ts.createTypeParameterDeclaration(p)),
+    d.introduction.parameters.map(p =>
+      ts.createTypeParameterDeclaration(p.name, p.constraint.map(getType).toUndefined())
+    ),
     type
   )
 }
@@ -61,7 +64,11 @@ export const constructors = (d: M.Data): Array<ts.Node> => {
               name,
               ts.createTypeReferenceNode(
                 d.introduction.name,
-                d.introduction.parameters.map(_ => ts.createKeywordTypeNode(ts.SyntaxKind.NeverKeyword))
+                d.introduction.parameters.map(p =>
+                  p.constraint
+                    .map<ts.TypeNode>(c => getType(c))
+                    .getOrElse(ts.createKeywordTypeNode(ts.SyntaxKind.NeverKeyword))
+                )
               ),
               ts.createObjectLiteral([ts.createPropertyAssignment('type', ts.createStringLiteral(c.name))])
             )
@@ -76,7 +83,7 @@ export const constructors = (d: M.Data): Array<ts.Node> => {
         undefined,
         name,
         d.introduction.parameters.map(p => {
-          return ts.createTypeParameterDeclaration(p)
+          return ts.createTypeParameterDeclaration(p.name, p.constraint.map(getType).toUndefined())
         }),
         c.members.map((m, position) => {
           return ts.createParameter(
@@ -91,7 +98,7 @@ export const constructors = (d: M.Data): Array<ts.Node> => {
         }),
         ts.createTypeReferenceNode(
           d.introduction.name,
-          d.introduction.parameters.map(p => ts.createTypeReferenceNode(p, []))
+          d.introduction.parameters.map(p => ts.createTypeReferenceNode(p.name, []))
         ),
         ts.createBlock([
           ts.createReturn(
@@ -125,7 +132,7 @@ const getFoldReturnTypeParameterName = (i: M.Introduction): string => {
   const base = 'R'
   let candidate = base
   let counter = 0
-  while (i.parameters.indexOf(candidate) !== -1) {
+  while (i.parameters.findIndex(({ name }) => candidate === name) !== -1) {
     candidate = base + ++counter
   }
   return candidate
@@ -142,7 +149,9 @@ const getFold = (d: M.Data, name: string, isEager: boolean) => {
     [ts.createModifier(ts.SyntaxKind.ExportKeyword)],
     undefined,
     name,
-    d.introduction.parameters.concat(returnTypeParameterName).map(p => ts.createTypeParameterDeclaration(p)),
+    d.introduction.parameters
+      .concat(M.parameter(returnTypeParameterName, none))
+      .map(p => ts.createTypeParameterDeclaration(p.name, p.constraint.map(getType).toUndefined())),
     [
       ts.createParameter(
         undefined,
@@ -152,7 +161,7 @@ const getFold = (d: M.Data, name: string, isEager: boolean) => {
         undefined,
         ts.createTypeReferenceNode(
           d.introduction.name,
-          d.introduction.parameters.map(p => ts.createTypeReferenceNode(p, []))
+          d.introduction.parameters.map(p => ts.createTypeReferenceNode(p.name, []))
         ),
         undefined
       ),
