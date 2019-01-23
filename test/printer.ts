@@ -1,13 +1,19 @@
 import * as assert from 'assert'
 import * as P from '../src/printer'
 import * as H from './helpers'
+import { Options, defaultOptions } from '../src/ast'
+
+const assertEqual = <A, B>(f: (a: A) => P.Printer<B>, a: A, expected: B, options: Options = defaultOptions) => {
+  const actual = f(a).run(options)
+  assert.deepStrictEqual(actual, expected)
+}
 
 describe('printer', () => {
   describe('data', () => {
     it('data', () => {
-      const printer = P.data
-      assert.strictEqual(
-        printer(H.Option),
+      assertEqual(
+        P.data,
+        H.Option,
         `export type Option<A> = {
     readonly type: "None";
 } | {
@@ -15,8 +21,9 @@ describe('printer', () => {
     readonly value0: A;
 };`
       )
-      assert.strictEqual(
-        printer(H.Either),
+      assertEqual(
+        P.data,
+        H.Either,
         `export type Either<L, R> = {
     readonly type: "Left";
     readonly value0: L;
@@ -25,8 +32,9 @@ describe('printer', () => {
     readonly value0: R;
 };`
       )
-      assert.strictEqual(
-        printer(H.Tree),
+      assertEqual(
+        P.data,
+        H.Tree,
         `export type Tree<A> = {
     readonly type: "Leaf";
 } | {
@@ -39,9 +47,9 @@ describe('printer', () => {
     })
 
     it('should handle only one constructor', () => {
-      const printer = P.data
-      assert.strictEqual(
-        printer(H.User),
+      assertEqual(
+        P.data,
+        H.User,
         `export type User = {
     readonly type: "User";
     readonly name: string;
@@ -51,9 +59,9 @@ describe('printer', () => {
     })
 
     it('should handle nullary constructors', () => {
-      const printer = P.data
-      assert.strictEqual(
-        printer(H.FooBar),
+      assertEqual(
+        P.data,
+        H.FooBar,
         `export type FooBar = {
     readonly type: "Foo";
 } | {
@@ -65,32 +73,29 @@ describe('printer', () => {
 
   describe('constructors', () => {
     it('constructors', () => {
-      const printer = P.constructors
-      assert.deepStrictEqual(printer(H.Option), [
+      assertEqual(P.constructors, H.Option, [
         'export const none: Option<never> = { type: "None" };',
         'export function some<A>(value0: A): Option<A> { return { type: "Some", value0 }; }'
       ])
-      assert.deepStrictEqual(printer(H.Either), [
+      assertEqual(P.constructors, H.Either, [
         'export function left<L, R>(value0: L): Either<L, R> { return { type: "Left", value0 }; }',
         'export function right<L, R>(value0: R): Either<L, R> { return { type: "Right", value0 }; }'
       ])
-      assert.deepStrictEqual(printer(H.Tree), [
+      assertEqual(P.constructors, H.Tree, [
         'export const leaf: Tree<never> = { type: "Leaf" };',
         'export function node<A>(value0: Tree<A>, value1: A, value2: Tree<A>): Tree<A> { return { type: "Node", value0, value1, value2 }; }'
       ])
     })
 
     it('nullary constructors', () => {
-      const printer = P.constructors
-      assert.deepStrictEqual(printer(H.FooBar), [
+      assertEqual(P.constructors, H.FooBar, [
         'export const foo: FooBar = { type: "Foo" };',
         'export const bar: FooBar = { type: "Bar" };'
       ])
     })
 
     it('monomorphic constructors', () => {
-      const printer = P.constructors
-      assert.deepStrictEqual(printer(H.User), [
+      assertEqual(P.constructors, H.User, [
         'export function user(name: string, surname: string): User { return { type: "User", name, surname }; }'
       ])
     })
@@ -98,20 +103,17 @@ describe('printer', () => {
 
   describe('fold', () => {
     it('should not emit a fold if data is not a sum type', () => {
-      const printer = P.fold
-      assert.deepStrictEqual(printer(H.User), [])
+      assertEqual(P.fold, H.User, [])
     })
 
     it('should not emit a fold if all constructors are not nullary', () => {
-      const printer = P.fold
-      assert.deepStrictEqual(printer(H.Either), [
+      assertEqual(P.fold, H.Either, [
         'export function fold<L, R, R1>(fa: Either<L, R>, onLeft: (value0: L) => R1, onRight: (value0: R) => R1): R1 { switch (fa.type) {\n    case "Left": return onLeft(fa.value0);\n    case "Right": return onRight(fa.value0);\n} }'
       ])
     })
 
     it('should handle monomorphic data', () => {
-      const printer = P.fold
-      assert.deepStrictEqual(printer(H.FooBar), [
+      assertEqual(P.fold, H.FooBar, [
         'export function fold<R>(fa: FooBar, onFoo: R, onBar: R): R { switch (fa.type) {\n    case "Foo": return onFoo;\n    case "Bar": return onBar;\n} }',
         'export function foldL<R>(fa: FooBar, onFoo: () => R, onBar: () => R): R { switch (fa.type) {\n    case "Foo": return onFoo();\n    case "Bar": return onBar();\n} }'
       ])
@@ -212,6 +214,35 @@ export function foldL<A extends string, R>(fa: Constrained<A>, onFetching: () =>
 
 export function user(name: string, surname: string): User { return { type: "User", name, surname }; }`
       )
+    })
+
+    describe('options', () => {
+      it('should handle custom tag names', () => {
+        const printer = P.print
+        assert.strictEqual(
+          printer(H.Option, { tag: 'tag' }),
+          `export type Option<A> = {
+    readonly tag: "None";
+} | {
+    readonly tag: "Some";
+    readonly value0: A;
+};
+
+export const none: Option<never> = { tag: "None" };
+
+export function some<A>(value0: A): Option<A> { return { tag: "Some", value0 }; }
+
+export function fold<A, R>(fa: Option<A>, onNone: R, onSome: (value0: A) => R): R { switch (fa.tag) {
+    case "None": return onNone;
+    case "Some": return onSome(fa.value0);
+} }
+
+export function foldL<A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) => R): R { switch (fa.tag) {
+    case "None": return onNone();
+    case "Some": return onSome(fa.value0);
+} }`
+        )
+      })
     })
   })
 })
