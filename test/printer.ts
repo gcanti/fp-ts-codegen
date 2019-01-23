@@ -119,7 +119,7 @@ describe('printer', () => {
   })
 
   describe('print', () => {
-    it('positional member', () => {
+    it('positional members', () => {
       const printer = P.print
       assert.strictEqual(
         printer(H.Option),
@@ -197,6 +197,20 @@ export function foldL<A extends string, R>(fa: Constrained<A>, onFetching: () =>
     case "Fetching": return onFetching();
     case "GotData": return onGotData(fa.value0);
 } }`
+      )
+    })
+
+    it('records', () => {
+      const printer = P.print
+      assert.strictEqual(
+        printer(H.User),
+        `export type User = {
+    readonly type: "User";
+    readonly name: string;
+    readonly surname: string;
+};
+
+export function user(name: string, surname: string): User { return { type: "User", name, surname }; }`
       )
     })
   })
