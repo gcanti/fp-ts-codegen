@@ -8,18 +8,10 @@ export interface Type {
   parameters: Array<Type>
 }
 
-export interface PositionalMember {
-  _tag: 'PositionalMember'
+export interface Member {
   type: Type
+  name: Option<Identifier>
 }
-
-export interface NamedMember {
-  _tag: 'NamedMember'
-  name: Identifier
-  type: Type
-}
-
-export type Member = PositionalMember | NamedMember
 
 export interface Constructor {
   name: Identifier
@@ -46,15 +38,9 @@ export const type = (name: Identifier, parameters: Array<Type> = []): Type => ({
   parameters
 })
 
-export const positionalMember = (type: Type): Member => ({
-  _tag: 'PositionalMember',
-  type
-})
-
-export const namedMember = (name: Identifier, type: Type): Member => ({
-  _tag: 'NamedMember',
-  name,
-  type
+export const member = (type: Type, name: Option<Identifier> = none): Member => ({
+  type,
+  name
 })
 
 export const constructor = (name: Identifier, members: Array<Member> = []): Constructor => ({

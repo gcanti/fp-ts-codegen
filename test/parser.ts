@@ -30,6 +30,7 @@ describe('parser', () => {
     assertSuccess(parser, 'a', 'a')
     assertSuccess(parser, 'a1', 'a1')
     assertSuccess(parser, 'a\n', 'a')
+    assertSuccess(parser, 'a:b', 'a')
     assertFailure(parser, '', 'Expected an identifier, got ""')
     assertFailure(parser, '1', 'Expected an identifier, got "1"')
   })
@@ -59,18 +60,21 @@ describe('parser', () => {
 
   it('members', () => {
     const parser = P.members
-    assertSuccess(parser, '(Tree A) A', [
-      M.positionalMember(M.type('Tree', [M.type('A')])),
-      M.positionalMember(M.type('A'))
-    ])
-    assertSuccess(parser, 'A (Tree A)', [
-      M.positionalMember(M.type('A')),
-      M.positionalMember(M.type('Tree', [M.type('A')]))
-    ])
+    assertSuccess(parser, '(Tree A) A', [M.member(M.type('Tree', [M.type('A')])), M.member(M.type('A'))])
+    assertSuccess(parser, 'A (Tree A)', [M.member(M.type('A')), M.member(M.type('Tree', [M.type('A')]))])
     assertSuccess(parser, '(Tree A) A (Tree A)', [
-      M.positionalMember(M.type('Tree', [M.type('A')])),
-      M.positionalMember(M.type('A')),
-      M.positionalMember(M.type('Tree', [M.type('A')]))
+      M.member(M.type('Tree', [M.type('A')])),
+      M.member(M.type('A')),
+      M.member(M.type('Tree', [M.type('A')]))
+    ])
+    assertSuccess(parser, '{ foo :: string }', [M.member(M.type('string'), some('foo'))])
+    assertSuccess(parser, '{ foo :: string, bar :: number }', [
+      M.member(M.type('string'), some('foo')),
+      M.member(M.type('number'), some('bar'))
+    ])
+    assertSuccess(parser, '{foo::string,bar::number}', [
+      M.member(M.type('string'), some('foo')),
+      M.member(M.type('number'), some('bar'))
     ])
   })
 
@@ -91,7 +95,7 @@ describe('parser', () => {
     assertSuccess(parser, 'data Option A = None | Some A', H.Option)
     assertSuccess(parser, 'data Either L R = Left L | Right R', H.Either)
     assertSuccess(parser, 'data Tree A = Leaf | Node (Tree A) A (Tree A)', H.Tree)
-    assertSuccess(parser, 'data Maybe A = Nothing | Just value:A', H.Maybe)
+    assertSuccess(parser, 'data User = User { name :: string, surname :: string }', H.User)
   })
 
   it('parse', () => {

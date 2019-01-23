@@ -3,12 +3,7 @@ import * as M from './model'
 import { none } from 'fp-ts/lib/Option'
 
 const getMemberName = (m: M.Member, position: number): string => {
-  switch (m._tag) {
-    case 'NamedMember':
-      return m.name
-    case 'PositionalMember':
-      return `value${position}`
-  }
+  return m.name.getOrElseL(() => `value${position}`)
 }
 
 const getType = (t: M.Type): ts.TypeReferenceNode => {
