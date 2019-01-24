@@ -1,7 +1,7 @@
 import * as assert from 'assert'
 import * as P from '../src/printer'
 import * as H from './helpers'
-import { Options, defaultOptions } from '../src/ast'
+import { Options, defaultOptions, lenses } from '../src/ast'
 
 const assertEqual = <A, B>(f: (a: A) => P.Printer<B>, a: A, expected: B, options: Options = defaultOptions) => {
   const actual = f(a).run(options)
@@ -220,7 +220,7 @@ export function user(name: string, surname: string): User { return { type: "User
       it('should handle custom tag names', () => {
         const printer = P.print
         assert.strictEqual(
-          printer(H.Option, { tagName: 'tag', foldName: 'fold', matcheeName: 'fa' }),
+          printer(H.Option, lenses.tagName.set('tag')(defaultOptions)),
           `export type Option<A> = {
     readonly tag: "None";
 } | {
@@ -258,7 +258,7 @@ export function foldL<A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) 
     case "Some": return onSome(fa.value0);
 } }`
           ],
-          { tagName: 'type', foldName: 'match', matcheeName: 'fa' }
+          lenses.foldName.set('match')(defaultOptions)
         )
       })
 
@@ -276,7 +276,7 @@ export function foldL<A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) 
     case "Some": return onSome(input.value0);
 } }`
           ],
-          { tagName: 'type', foldName: 'fold', matcheeName: 'input' }
+          lenses.matcheeName.set('input')(defaultOptions)
         )
       })
     })

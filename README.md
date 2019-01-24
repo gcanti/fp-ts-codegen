@@ -118,6 +118,24 @@ export const defaultOptions: Options = {
 }
 ```
 
+## Options management
+
+Example
+
+```ts
+import { lenses, defaultOptions } from 'fp-ts-codegen/lib/ast'
+
+lenses.tagName.set('tag')(defaultOptions)
+/*
+{
+  tagName: 'tag',
+  foldName: 'fold',
+  matcheeName: 'fa',
+  ...
+}
+*/
+```
+
 # Modules
 
 - `ast` module: internal model -> TypeScript AST

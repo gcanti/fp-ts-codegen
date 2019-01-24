@@ -3,6 +3,7 @@ import { Reader, reader, ask } from 'fp-ts/lib/Reader'
 import { array, empty } from 'fp-ts/lib/Array'
 import * as ts from 'typescript'
 import * as M from './model'
+import { Lens } from 'monocle-ts'
 
 export interface Options {
   /** the name of the field used as tag */
@@ -17,6 +18,14 @@ export const defaultOptions: Options = {
   tagName: 'type',
   foldName: 'fold',
   matcheeName: 'fa'
+}
+
+const getLens = Lens.fromProp<Options>()
+
+export const lenses: { [K in keyof Options]: Lens<Options, Options[K]> } = {
+  tagName: getLens('tagName'),
+  foldName: getLens('foldName'),
+  matcheeName: getLens('matcheeName')
 }
 
 export interface AST<A> extends Reader<Options, A> {}
