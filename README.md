@@ -2,6 +2,14 @@ POC: TypeScript code generation from a haskell-like syntax for ADT (algebraic da
 
 # Usage
 
+Signature
+
+```ts
+function run(input: string, options: Options = defaultOptions): Either<string, string>
+```
+
+Example
+
 ```ts
 import { run } from 'fp-ts-codegen'
 
