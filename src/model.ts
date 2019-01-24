@@ -3,39 +3,69 @@ import { Option, none } from 'fp-ts/lib/Option'
 
 export type Identifier = string
 
-export interface Type {
-  name: Identifier
-  parameters: Array<Type>
+interface TypeReference {
+  readonly kind: 'TypeReference'
+  readonly name: Identifier
+  readonly parameters: Array<Type>
 }
 
+interface TupleType {
+  readonly kind: 'TupleType'
+  readonly fst: Type
+  readonly snd: Type
+  readonly other: Array<Type>
+}
+
+interface FunctionType {
+  readonly kind: 'FunctionType'
+  readonly domain: Type
+  readonly codomain: Type
+}
+
+export type Type = TypeReference | TupleType | FunctionType
+
 export interface Member {
-  type: Type
-  name: Option<Identifier>
+  readonly type: Type
+  readonly name: Option<Identifier>
 }
 
 export interface Constructor {
-  name: Identifier
-  members: Array<Member>
+  readonly name: Identifier
+  readonly members: Array<Member>
 }
 
 export interface Parameter {
-  name: Identifier
-  constraint: Option<Type>
+  readonly name: Identifier
+  readonly constraint: Option<Type>
 }
 
 export interface Introduction {
-  name: Identifier
-  parameters: Array<Parameter>
+  readonly name: Identifier
+  readonly parameters: Array<Parameter>
 }
 
 export interface Data {
-  introduction: Introduction
-  constructors: NonEmptyArray<Constructor>
+  readonly introduction: Introduction
+  readonly constructors: NonEmptyArray<Constructor>
 }
 
-export const type = (name: Identifier, parameters: Array<Type> = []): Type => ({
+export const typeReference = (name: Identifier, parameters: Array<Type> = []): Type => ({
+  kind: 'TypeReference',
   name,
   parameters
+})
+
+export const tupleType = (fst: Type, snd: Type, other: Array<Type> = []): Type => ({
+  kind: 'TupleType',
+  fst,
+  snd,
+  other
+})
+
+export const functionType = (domain: Type, codomain: Type): Type => ({
+  kind: 'FunctionType',
+  domain,
+  codomain
 })
 
 export const member = (type: Type, name: Option<Identifier> = none): Member => ({
@@ -58,7 +88,7 @@ export const introduction = (name: Identifier, parameters: Array<Parameter> = []
   parameters
 })
 
-export const data = (introduction: Introduction, head: Constructor, tail: Array<Constructor>): Data => ({
+export const data = (introduction: Introduction, head: Constructor, tail: Array<Constructor> = []): Data => ({
   introduction,
   constructors: new NonEmptyArray(head, tail)
 })

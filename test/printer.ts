@@ -1,5 +1,6 @@
 import * as assert from 'assert'
 import * as P from '../src/printer'
+import * as M from '../src/model'
 import * as E from './examples'
 import { Options, defaultOptions, lenses } from '../src/ast'
 
@@ -200,6 +201,76 @@ export function foldL<A extends string, R>(fa: Constrained<A>, onFetching: () =>
     case "GotData": return onGotData(fa.value0);
 } }`
       )
+    })
+
+    it('tuples', () => {
+      const printer = P.print
+      assert.strictEqual(
+        printer(E.Tuple2),
+        `export type Tuple2<A, B> = {
+    readonly type: "Tuple2";
+    readonly value0: [A, B];
+};
+
+export function tuple2<A, B>(value0: [A, B]): Tuple2<A, B> { return { type: "Tuple2", value0 }; }`
+      )
+    })
+
+    describe('functions', () => {
+      it('type reference domain', () => {
+        const printer = P.print
+        assert.strictEqual(
+          printer(E.State),
+          `export type State<S, A> = {
+    readonly type: "State";
+    readonly value0: (s: S) => [A, S];
+};
+
+export function state<S, A>(value0: (s: S) => [A, S]): State<S, A> { return { type: "State", value0 }; }`
+        )
+      })
+
+      it('tuple domain', () => {
+        const printer = P.print
+        assert.strictEqual(
+          printer(
+            M.data(
+              M.introduction('Tuple'),
+              M.constructor('Tuple', [
+                M.member(M.functionType(M.tupleType(M.typeReference('A'), M.typeReference('B')), M.typeReference('C')))
+              ])
+            )
+          ),
+          `export type Tuple = {
+    readonly type: "Tuple";
+    readonly value0: (tuple: [A, B]) => C;
+};
+
+export function tuple(value0: (tuple: [A, B]) => C): Tuple { return { type: "Tuple", value0 }; }`
+        )
+      })
+
+      it('function domain', () => {
+        const printer = P.print
+        assert.strictEqual(
+          printer(
+            M.data(
+              M.introduction('Function'),
+              M.constructor('Function', [
+                M.member(
+                  M.functionType(M.functionType(M.typeReference('A'), M.typeReference('B')), M.typeReference('C'))
+                )
+              ])
+            )
+          ),
+          `export type Function = {
+    readonly type: "Function";
+    readonly value0: (f: (a: A) => B) => C;
+};
+
+export function function(value0: (f: (a: A) => B) => C): Function { return { type: "Function", value0 }; }`
+        )
+      })
     })
 
     it('records', () => {
