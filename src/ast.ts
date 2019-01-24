@@ -12,12 +12,18 @@ export interface Options {
   foldName: string
   /** the name used for the input of pattern matching functions */
   matcheeName: string
+  /**
+   * the pattern matching handlers can be expressed as positional arguments
+   * or a single object literal `tag -> handler`
+   */
+  handlersStyle: { type: 'positional' } | { type: 'record'; handlersName: string }
 }
 
 export const defaultOptions: Options = {
   tagName: 'type',
   foldName: 'fold',
-  matcheeName: 'fa'
+  matcheeName: 'fa',
+  handlersStyle: { type: 'positional' }
 }
 
 const getLens = Lens.fromProp<Options>()
@@ -25,7 +31,8 @@ const getLens = Lens.fromProp<Options>()
 export const lenses: { [K in keyof Options]: Lens<Options, Options[K]> } = {
   tagName: getLens('tagName'),
   foldName: getLens('foldName'),
-  matcheeName: getLens('matcheeName')
+  matcheeName: getLens('matcheeName'),
+  handlersStyle: getLens('handlersStyle')
 }
 
 export interface AST<A> extends Reader<Options, A> {}
@@ -198,9 +205,96 @@ const getHandlerName = (c: M.Constructor): string => {
   return `on${c.name}`
 }
 
+const getPositionalFoldHandlers = (d: M.Data, isEager: boolean): Array<ts.ParameterDeclaration> => {
+  const returnTypeParameterName = getFoldReturnTypeParameterName(d.introduction)
+  return d.constructors.toArray().map(c => {
+    const type =
+      isEager && isNullaryConstructor(c)
+        ? ts.createTypeReferenceNode(returnTypeParameterName, [])
+        : ts.createFunctionTypeNode(
+            undefined,
+            c.members.map((m, position) => getParameterDeclaration(getMemberName(m, position), getType(m.type))),
+            ts.createTypeReferenceNode(returnTypeParameterName, [])
+          )
+    return getParameterDeclaration(getHandlerName(c), type)
+  })
+}
+
+const getRecordFoldHandlers = (d: M.Data, handlersName: string, isEager: boolean): Array<ts.ParameterDeclaration> => {
+  const returnTypeParameterName = getFoldReturnTypeParameterName(d.introduction)
+  const type = ts.createTypeLiteralNode(
+    d.constructors.toArray().map(c => {
+      const type =
+        isEager && isNullaryConstructor(c)
+          ? ts.createTypeReferenceNode(returnTypeParameterName, [])
+          : ts.createFunctionTypeNode(
+              undefined,
+              c.members.map((m, position) => getParameterDeclaration(getMemberName(m, position), getType(m.type))),
+              ts.createTypeReferenceNode(returnTypeParameterName, [])
+            )
+      return ts.createPropertySignature(undefined, getHandlerName(c), undefined, type, undefined)
+    })
+  )
+  return [getParameterDeclaration(handlersName, type)]
+}
+
+const getPositionalFoldBody = (d: M.Data, matcheeName: string, tagName: string, isEager: boolean) => {
+  return ts.createBlock([
+    ts.createSwitch(
+      ts.createPropertyAccess(ts.createIdentifier(matcheeName), tagName),
+      ts.createCaseBlock(
+        d.constructors.toArray().map(c => {
+          const access = ts.createIdentifier(getHandlerName(c))
+          return ts.createCaseClause(ts.createStringLiteral(c.name), [
+            ts.createReturn(
+              isEager && isNullaryConstructor(c)
+                ? access
+                : ts.createCall(
+                    access,
+                    [],
+                    c.members.map((m, position) => {
+                      return ts.createPropertyAccess(ts.createIdentifier(matcheeName), getMemberName(m, position))
+                    })
+                  )
+            )
+          ])
+        })
+      )
+    )
+  ])
+}
+
+const getRecordFoldBody = (d: M.Data, matcheeName: string, tagName: string, handlersName: string, isEager: boolean) => {
+  return ts.createBlock([
+    ts.createSwitch(
+      ts.createPropertyAccess(ts.createIdentifier(matcheeName), tagName),
+      ts.createCaseBlock(
+        d.constructors.toArray().map(c => {
+          const access = ts.createPropertyAccess(ts.createIdentifier(handlersName), getHandlerName(c))
+          return ts.createCaseClause(ts.createStringLiteral(c.name), [
+            ts.createReturn(
+              isEager && isNullaryConstructor(c)
+                ? access
+                : ts.createCall(
+                    access,
+                    [],
+                    c.members.map((m, position) => {
+                      return ts.createPropertyAccess(ts.createIdentifier(matcheeName), getMemberName(m, position))
+                    })
+                  )
+            )
+          ])
+        })
+      )
+    )
+  ])
+}
+
 const getFold = (d: M.Data, name: string, isEager: boolean): AST<ts.FunctionDeclaration> => {
   return new Reader(e => {
     const matcheeName = e.matcheeName
+    const tagName = e.tagName
+    const handlersStyle = e.handlersStyle
     const returnTypeParameterName = getFoldReturnTypeParameterName(d.introduction)
     const typeParameters = d.introduction.parameters
       .concat(M.parameter(returnTypeParameterName, none))
@@ -212,41 +306,16 @@ const getFold = (d: M.Data, name: string, isEager: boolean): AST<ts.FunctionDecl
         d.introduction.parameters.map(p => ts.createTypeReferenceNode(p.name, []))
       )
     )
-    const handlers = d.constructors.toArray().map(c => {
-      const type =
-        isEager && isNullaryConstructor(c)
-          ? ts.createTypeReferenceNode(returnTypeParameterName, [])
-          : ts.createFunctionTypeNode(
-              undefined,
-              c.members.map((m, position) => getParameterDeclaration(getMemberName(m, position), getType(m.type))),
-              ts.createTypeReferenceNode(returnTypeParameterName, [])
-            )
-      return getParameterDeclaration(getHandlerName(c), type)
-    })
+    const handlers =
+      handlersStyle.type === 'positional'
+        ? getPositionalFoldHandlers(d, isEager)
+        : getRecordFoldHandlers(d, handlersStyle.handlersName, isEager)
     const parameters = [matchee, ...handlers]
     const type = ts.createTypeReferenceNode(returnTypeParameterName, [])
-    const body = ts.createBlock([
-      ts.createSwitch(
-        ts.createPropertyAccess(ts.createIdentifier(matcheeName), e.tagName),
-        ts.createCaseBlock(
-          d.constructors.toArray().map(c => {
-            return ts.createCaseClause(ts.createStringLiteral(c.name), [
-              ts.createReturn(
-                isEager && isNullaryConstructor(c)
-                  ? ts.createIdentifier(getHandlerName(c))
-                  : ts.createCall(
-                      ts.createIdentifier(getHandlerName(c)),
-                      [],
-                      c.members.map((m, position) => {
-                        return ts.createPropertyAccess(ts.createIdentifier(matcheeName), getMemberName(m, position))
-                      })
-                    )
-              )
-            ])
-          })
-        )
-      )
-    ])
+    const body =
+      handlersStyle.type === 'positional'
+        ? getPositionalFoldBody(d, matcheeName, tagName, isEager)
+        : getRecordFoldBody(d, matcheeName, tagName, handlersStyle.handlersName, isEager)
     return getFunctionDeclaration(name, typeParameters, parameters, type, body)
   })
 }

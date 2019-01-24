@@ -279,6 +279,30 @@ export function foldL<A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) 
           lenses.matcheeName.set('input')(defaultOptions)
         )
       })
+
+      it('should handle handlersName + handlersStyle', () => {
+        assertEqual(
+          P.fold,
+          H.Option,
+          [
+            `export function fold<A, R>(fa: Option<A>, clauses: {
+    onNone: R;
+    onSome: (value0: A) => R;
+}): R { switch (fa.type) {
+    case "None": return clauses.onNone;
+    case "Some": return clauses.onSome(fa.value0);
+} }`,
+            `export function foldL<A, R>(fa: Option<A>, clauses: {
+    onNone: () => R;
+    onSome: (value0: A) => R;
+}): R { switch (fa.type) {
+    case "None": return clauses.onNone();
+    case "Some": return clauses.onSome(fa.value0);
+} }`
+          ],
+          lenses.handlersStyle.set({ type: 'record', handlersName: 'clauses' })(defaultOptions)
+        )
+      })
     })
   })
 })

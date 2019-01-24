@@ -100,7 +100,7 @@ console.log(run('data Constrained (A :: string) = Fetching | GotData A'))
 # Options
 
 ```ts
-// ast.ts
+// fp-ts-codegen/lib/ast module
 
 export interface Options {
   /** the name of the field used as tag */
@@ -109,12 +109,18 @@ export interface Options {
   foldName: string
   /** the name used for the input of pattern matching functions */
   matcheeName: string
+  /**
+   * the pattern matching handlers can be expressed as positional arguments
+   * or a single object literal `tag -> handler`
+   */
+  handlersStyle: { type: 'positional' } | { type: 'record'; handlersName: string }
 }
 
 export const defaultOptions: Options = {
   tagName: 'type',
   foldName: 'fold',
-  matcheeName: 'fa'
+  matcheeName: 'fa',
+  handlersStyle: { type: 'positional' }
 }
 ```
 
