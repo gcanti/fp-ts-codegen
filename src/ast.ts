@@ -1,15 +1,19 @@
 import { none } from 'fp-ts/lib/Option'
-import { Reader, reader } from 'fp-ts/lib/Reader'
+import { Reader, reader, ask } from 'fp-ts/lib/Reader'
 import { array, empty } from 'fp-ts/lib/Array'
 import * as ts from 'typescript'
 import * as M from './model'
 
 export interface Options {
-  tag: string
+  /** the name of the field used as tag */
+  tagName: string
+  /** the name prefix used for pattern matching functions */
+  foldName: string
 }
 
 export const defaultOptions: Options = {
-  tag: 'type'
+  tagName: 'type',
+  foldName: 'fold'
 }
 
 export interface AST<A> extends Reader<Options, A> {}
@@ -28,7 +32,7 @@ export const data = (d: M.Data): AST<ts.TypeAliasDeclaration> => {
       d.constructors.toArray().map(c => {
         const tag: ts.TypeElement = ts.createPropertySignature(
           [ts.createModifier(ts.SyntaxKind.ReadonlyKeyword)],
-          e.tag,
+          e.tagName,
           undefined,
           ts.createLiteralTypeNode(ts.createLiteral(c.name)),
           undefined
@@ -80,7 +84,7 @@ export const constructors = (d: M.Data): AST<Array<ts.Node>> => {
                       .getOrElse(ts.createKeywordTypeNode(ts.SyntaxKind.NeverKeyword))
                   )
                 ),
-                ts.createObjectLiteral([ts.createPropertyAssignment(e.tag, ts.createStringLiteral(c.name))])
+                ts.createObjectLiteral([ts.createPropertyAssignment(e.tagName, ts.createStringLiteral(c.name))])
               )
             ],
             ts.NodeFlags.Const
@@ -113,7 +117,7 @@ export const constructors = (d: M.Data): AST<Array<ts.Node>> => {
           ts.createBlock([
             ts.createReturn(
               ts.createObjectLiteral([
-                ts.createPropertyAssignment(e.tag, ts.createStringLiteral(c.name)),
+                ts.createPropertyAssignment(e.tagName, ts.createStringLiteral(c.name)),
                 ...c.members.map((m, position) => {
                   const name = getMemberName(m, position)
                   return ts.createShorthandPropertyAssignment(name)
@@ -207,7 +211,7 @@ const getFold = (d: M.Data, name: string, isEager: boolean): AST<ts.FunctionDecl
       ts.createTypeReferenceNode(returnTypeParameterName, []),
       ts.createBlock([
         ts.createSwitch(
-          ts.createPropertyAccess(ts.createIdentifier('fa'), e.tag),
+          ts.createPropertyAccess(ts.createIdentifier('fa'), e.tagName),
           ts.createCaseBlock(
             d.constructors.toArray().map(c => {
               return ts.createCaseClause(ts.createStringLiteral(c.name), [
@@ -232,13 +236,15 @@ const getFold = (d: M.Data, name: string, isEager: boolean): AST<ts.FunctionDecl
 }
 
 export const fold = (d: M.Data): AST<Array<ts.FunctionDeclaration>> => {
-  let folds: Array<AST<ts.FunctionDeclaration>> = empty
-  if (isSumType(d)) {
-    if (admitsEagerFold(d)) {
-      folds = [getFold(d, 'fold', true), getFold(d, 'foldL', false)]
-    } else {
-      folds = [getFold(d, 'fold', false)]
+  return ask<Options>().chain(e => {
+    let folds: Array<AST<ts.FunctionDeclaration>> = empty
+    if (isSumType(d)) {
+      if (admitsEagerFold(d)) {
+        folds = [getFold(d, e.foldName, true), getFold(d, `${e.foldName}L`, false)]
+      } else {
+        folds = [getFold(d, e.foldName, false)]
+      }
     }
-  }
-  return array.sequence(reader)(folds)
+    return array.sequence(reader)(folds)
+  })
 }

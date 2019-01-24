@@ -30,7 +30,7 @@ export function some<A>(value0: A): Option<A> {
   return { type: 'Some', value0 }
 }
 
-/** match functions */
+/** pattern matching */
 
 //                                       eager ---v
 export function fold<A, R>(fa: Option<A>, onNone: R, onSome: (value0: A) => R): R {
@@ -87,6 +87,24 @@ Example
 ```ts
 //                        constraint ---v
 console.log(run('data Constrained (A :: string) = Fetching | GotData A'))
+```
+
+# Options
+
+```ts
+// ast.ts
+
+export interface Options {
+  /** the name of the field used as tag */
+  tagName: string
+  /** the name prefix used for pattern matching functions */
+  foldName: string
+}
+
+export const defaultOptions: Options = {
+  tagName: 'type',
+  foldName: 'fold'
+}
 ```
 
 # Modules

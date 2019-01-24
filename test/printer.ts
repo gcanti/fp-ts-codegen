@@ -220,7 +220,7 @@ export function user(name: string, surname: string): User { return { type: "User
       it('should handle custom tag names', () => {
         const printer = P.print
         assert.strictEqual(
-          printer(H.Option, { tag: 'tag' }),
+          printer(H.Option, { tagName: 'tag', foldName: 'fold' }),
           `export type Option<A> = {
     readonly tag: "None";
 } | {
@@ -243,6 +243,24 @@ export function foldL<A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) 
 } }`
         )
       })
+    })
+
+    it('should handle custom fold names', () => {
+      assertEqual(
+        P.fold,
+        H.Option,
+        [
+          `export function match<A, R>(fa: Option<A>, onNone: R, onSome: (value0: A) => R): R { switch (fa.type) {
+    case "None": return onNone;
+    case "Some": return onSome(fa.value0);
+} }`,
+          `export function matchL<A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) => R): R { switch (fa.type) {
+    case "None": return onNone();
+    case "Some": return onSome(fa.value0);
+} }`
+        ],
+        { tagName: 'type', foldName: 'match' }
+      )
     })
   })
 })
