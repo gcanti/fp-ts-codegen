@@ -2,7 +2,7 @@ import * as assert from 'assert'
 import { Parser } from 'parser-ts'
 import * as P from '../src/parser'
 import * as M from '../src/model'
-import * as H from './helpers'
+import * as E from './examples'
 import { right, left } from 'fp-ts/lib/Either'
 import { some } from 'fp-ts/lib/Option'
 
@@ -61,10 +61,10 @@ describe('parser', () => {
 
   it('constructor', () => {
     const parser = P.constructor
-    assertSuccess(parser, 'None', H.None)
-    assertSuccess(parser, 'Some A', H.Some)
-    assertSuccess(parser, 'Node (Tree A) A (Tree A)', H.Node)
-    assertSuccess(parser, 'User { name :: string, surname :: string }', H.User.constructors.head)
+    assertSuccess(parser, 'None', E.Option.constructors.head)
+    assertSuccess(parser, 'Some A', E.Option.constructors.tail[0])
+    assertSuccess(parser, 'Node (Tree A) A (Tree A)', E.Tree.constructors.tail[0])
+    assertSuccess(parser, 'User { name :: string, surname :: string }', E.User.constructors.head)
   })
 
   it('introduction', () => {
@@ -74,10 +74,10 @@ describe('parser', () => {
 
   it('data', () => {
     const parser = P.data
-    assertSuccess(parser, 'data Option A = None | Some A', H.Option)
-    assertSuccess(parser, 'data Either L R = Left L | Right R', H.Either)
-    assertSuccess(parser, 'data Tree A = Leaf | Node (Tree A) A (Tree A)', H.Tree)
-    assertSuccess(parser, 'data User = User { name :: string, surname :: string }', H.User)
+    assertSuccess(parser, 'data Option A = None | Some A', E.Option)
+    assertSuccess(parser, 'data Either L R = Left L | Right R', E.Either)
+    assertSuccess(parser, 'data Tree A = Leaf | Node (Tree A) A (Tree A)', E.Tree)
+    assertSuccess(parser, 'data User = User { name :: string, surname :: string }', E.User)
     assertFailure(
       parser,
       'data User = User { name :: string, age :: number, tags :: [number, number] }',
@@ -86,7 +86,7 @@ describe('parser', () => {
   })
 
   it('parse', () => {
-    assert.deepStrictEqual(P.parse('data Option A = None | Some A'), right(H.Option))
+    assert.deepStrictEqual(P.parse('data Option A = None | Some A'), right(E.Option))
     assert.deepStrictEqual(P.parse('data Option A = '), left('Expected a data declaration, cannot parse ""'))
   })
 })

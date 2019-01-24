@@ -12,11 +12,12 @@
     "jest": "jest",
     "prettier": "prettier --no-semi --single-quote --print-width 120 --parser typescript --list-different \"{src,test}/**/*.ts\"",
     "fix-prettier": "prettier --no-semi --single-quote --print-width 120 --parser typescript --write \"{src,test}/**/*.ts\"",
-    "test": "npm run prettier && npm run jest",
+    "test": "npm run prettier && npm run jest && npm run examples",
     "clean": "rimraf rm -rf lib/*",
     "build": "npm run clean && tsc",
     "dtslint": "dtslint dtslint",
-    "mocha": "mocha -r ts-node/register test/*.ts"
+    "mocha": "mocha -r ts-node/register test/*.ts",
+    "examples": "rimraf examples/*.ts && ts-node generate-examples.ts && ts-node examples/index.ts"
   },
   "repository": {
     "type": "git",
@@ -41,7 +42,7 @@
     "jest": "^23.6.0",
     "mocha": "^5.2.0",
     "prettier": "^1.16.1",
-    "rimraf": "^2.6.2",
+    "rimraf": "^2.6.3",
     "ts-jest": "^23.10.5",
     "ts-node": "3.3.0",
     "tslint": "^5.12.1",
@@ -71,7 +72,8 @@
       "js"
     ],
     "testPathIgnorePatterns": [
-      "helpers.ts"
+      "helpers.ts",
+      "examples.ts"
     ],
     "coverageThreshold": {
       "global": {

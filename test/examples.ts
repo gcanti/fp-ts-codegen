@@ -1,21 +1,10 @@
 import * as M from '../src/model'
 import { some } from 'fp-ts/lib/Option'
 
-// None
-export const None = M.constructor('None')
-
-// Some A
-export const Some = M.constructor('Some', [M.member(M.type('A'))])
-
-// Node (Tree A) A (Tree A)
-export const Node = M.constructor('Node', [
-  M.member(M.type('Tree', [M.type('A')])),
-  M.member(M.type('A')),
-  M.member(M.type('Tree', [M.type('A')]))
-])
-
 // data Option A = None | Some A
-export const Option = M.data(M.introduction('Option', [M.parameter('A')]), None, [Some])
+export const Option = M.data(M.introduction('Option', [M.parameter('A')]), M.constructor('None'), [
+  M.constructor('Some', [M.member(M.type('A'))])
+])
 
 // data Maybe A = Nothing | Just value:A
 export const Maybe = M.data(M.introduction('Maybe', [M.parameter('A')]), M.constructor('Nothing'), [
@@ -30,7 +19,13 @@ export const Either = M.data(
 )
 
 // data Tree A = Leaf | Node (Tree A) A (Tree A)
-export const Tree = M.data(M.introduction('Tree', [M.parameter('A')]), M.constructor('Leaf'), [Node])
+export const Tree = M.data(M.introduction('Tree', [M.parameter('A')]), M.constructor('Leaf'), [
+  M.constructor('Node', [
+    M.member(M.type('Tree', [M.type('A')])),
+    M.member(M.type('A')),
+    M.member(M.type('Tree', [M.type('A')]))
+  ])
+])
 
 // data FooBar = Foo | Bar
 export const FooBar = M.data(M.introduction('FooBar'), M.constructor('Foo'), [M.constructor('Bar')])
