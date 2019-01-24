@@ -1,6 +1,6 @@
 import * as assert from 'assert'
 import * as P from '../src/printer'
-import * as H from './helpers'
+import * as E from './examples'
 import { Options, defaultOptions, lenses } from '../src/ast'
 
 const assertEqual = <A, B>(f: (a: A) => P.Printer<B>, a: A, expected: B, options: Options = defaultOptions) => {
@@ -13,7 +13,7 @@ describe('printer', () => {
     it('data', () => {
       assertEqual(
         P.data,
-        H.Option,
+        E.Option,
         `export type Option<A> = {
     readonly type: "None";
 } | {
@@ -23,7 +23,7 @@ describe('printer', () => {
       )
       assertEqual(
         P.data,
-        H.Either,
+        E.Either,
         `export type Either<L, R> = {
     readonly type: "Left";
     readonly value0: L;
@@ -34,7 +34,7 @@ describe('printer', () => {
       )
       assertEqual(
         P.data,
-        H.Tree,
+        E.Tree,
         `export type Tree<A> = {
     readonly type: "Leaf";
 } | {
@@ -49,7 +49,7 @@ describe('printer', () => {
     it('should handle only one constructor', () => {
       assertEqual(
         P.data,
-        H.User,
+        E.User,
         `export type User = {
     readonly type: "User";
     readonly name: string;
@@ -61,7 +61,7 @@ describe('printer', () => {
     it('should handle nullary constructors', () => {
       assertEqual(
         P.data,
-        H.FooBar,
+        E.FooBar,
         `export type FooBar = {
     readonly type: "Foo";
 } | {
@@ -73,29 +73,29 @@ describe('printer', () => {
 
   describe('constructors', () => {
     it('constructors', () => {
-      assertEqual(P.constructors, H.Option, [
+      assertEqual(P.constructors, E.Option, [
         'export const none: Option<never> = { type: "None" };',
         'export function some<A>(value0: A): Option<A> { return { type: "Some", value0 }; }'
       ])
-      assertEqual(P.constructors, H.Either, [
+      assertEqual(P.constructors, E.Either, [
         'export function left<L, R>(value0: L): Either<L, R> { return { type: "Left", value0 }; }',
         'export function right<L, R>(value0: R): Either<L, R> { return { type: "Right", value0 }; }'
       ])
-      assertEqual(P.constructors, H.Tree, [
+      assertEqual(P.constructors, E.Tree, [
         'export const leaf: Tree<never> = { type: "Leaf" };',
         'export function node<A>(value0: Tree<A>, value1: A, value2: Tree<A>): Tree<A> { return { type: "Node", value0, value1, value2 }; }'
       ])
     })
 
     it('nullary constructors', () => {
-      assertEqual(P.constructors, H.FooBar, [
+      assertEqual(P.constructors, E.FooBar, [
         'export const foo: FooBar = { type: "Foo" };',
         'export const bar: FooBar = { type: "Bar" };'
       ])
     })
 
     it('monomorphic constructors', () => {
-      assertEqual(P.constructors, H.User, [
+      assertEqual(P.constructors, E.User, [
         'export function user(name: string, surname: string): User { return { type: "User", name, surname }; }'
       ])
     })
@@ -103,17 +103,17 @@ describe('printer', () => {
 
   describe('fold', () => {
     it('should not emit a fold if data is not a sum type', () => {
-      assertEqual(P.fold, H.User, [])
+      assertEqual(P.fold, E.User, [])
     })
 
     it('should not emit a fold if all constructors are not nullary', () => {
-      assertEqual(P.fold, H.Either, [
+      assertEqual(P.fold, E.Either, [
         'export function fold<L, R, R1>(fa: Either<L, R>, onLeft: (value0: L) => R1, onRight: (value0: R) => R1): R1 { switch (fa.type) {\n    case "Left": return onLeft(fa.value0);\n    case "Right": return onRight(fa.value0);\n} }'
       ])
     })
 
     it('should handle monomorphic data', () => {
-      assertEqual(P.fold, H.FooBar, [
+      assertEqual(P.fold, E.FooBar, [
         'export function fold<R>(fa: FooBar, onFoo: R, onBar: R): R { switch (fa.type) {\n    case "Foo": return onFoo;\n    case "Bar": return onBar;\n} }',
         'export function foldL<R>(fa: FooBar, onFoo: () => R, onBar: () => R): R { switch (fa.type) {\n    case "Foo": return onFoo();\n    case "Bar": return onBar();\n} }'
       ])
@@ -124,7 +124,7 @@ describe('printer', () => {
     it('positional members', () => {
       const printer = P.print
       assert.strictEqual(
-        printer(H.Option),
+        printer(E.Option),
         `export type Option<A> = {
     readonly type: "None";
 } | {
@@ -151,7 +151,7 @@ export function foldL<A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) 
     it('named members', () => {
       const printer = P.print
       assert.strictEqual(
-        printer(H.Maybe),
+        printer(E.Maybe),
         `export type Maybe<A> = {
     readonly type: "Nothing";
 } | {
@@ -178,7 +178,7 @@ export function foldL<A, R>(fa: Maybe<A>, onNothing: () => R, onJust: (value: A)
     it('constrained parameter', () => {
       const printer = P.print
       assert.strictEqual(
-        printer(H.Constrained),
+        printer(E.Constrained),
         `export type Constrained<A extends string> = {
     readonly type: "Fetching";
 } | {
@@ -205,7 +205,7 @@ export function foldL<A extends string, R>(fa: Constrained<A>, onFetching: () =>
     it('records', () => {
       const printer = P.print
       assert.strictEqual(
-        printer(H.User),
+        printer(E.User),
         `export type User = {
     readonly type: "User";
     readonly name: string;
@@ -220,7 +220,7 @@ export function user(name: string, surname: string): User { return { type: "User
       it('should handle custom tag names', () => {
         const printer = P.print
         assert.strictEqual(
-          printer(H.Option, lenses.tagName.set('tag')(defaultOptions)),
+          printer(E.Option, lenses.tagName.set('tag')(defaultOptions)),
           `export type Option<A> = {
     readonly tag: "None";
 } | {
@@ -247,7 +247,7 @@ export function foldL<A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) 
       it('should handle custom fold names', () => {
         assertEqual(
           P.fold,
-          H.Option,
+          E.Option,
           [
             `export function match<A, R>(fa: Option<A>, onNone: R, onSome: (value0: A) => R): R { switch (fa.type) {
     case "None": return onNone;
@@ -265,7 +265,7 @@ export function foldL<A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) 
       it('should handle custom matchee name', () => {
         assertEqual(
           P.fold,
-          H.Option,
+          E.Option,
           [
             `export function fold<A, R>(input: Option<A>, onNone: R, onSome: (value0: A) => R): R { switch (input.type) {
     case "None": return onNone;
@@ -283,7 +283,7 @@ export function foldL<A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) 
       it('should handle handlersName + handlersStyle', () => {
         assertEqual(
           P.fold,
-          H.Option,
+          E.Option,
           [
             `export function fold<A, R>(fa: Option<A>, clauses: {
     onNone: R;
