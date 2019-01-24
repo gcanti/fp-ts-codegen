@@ -1,5 +1,13 @@
 POC: TypeScript code generation from a haskell-like syntax for ADT (algebraic data types)
 
+# Installation
+
+To install the stable version:
+
+```sh
+npm install fp-ts-codegen
+```
+
 # Usage
 
 Signature
