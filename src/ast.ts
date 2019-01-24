@@ -9,11 +9,14 @@ export interface Options {
   tagName: string
   /** the name prefix used for pattern matching functions */
   foldName: string
+  /** the name used for the input of pattern matching functions */
+  matcheeName: string
 }
 
 export const defaultOptions: Options = {
   tagName: 'type',
-  foldName: 'fold'
+  foldName: 'fold',
+  matcheeName: 'fa'
 }
 
 export interface AST<A> extends Reader<Options, A> {}
@@ -28,7 +31,7 @@ const getType = (t: M.Type): ts.TypeReferenceNode => {
 
 export const data = (d: M.Data): AST<ts.TypeAliasDeclaration> => {
   return new Reader(e => {
-    const type = ts.createUnionTypeNode(
+    const unionType = ts.createUnionTypeNode(
       d.constructors.toArray().map(c => {
         const tag: ts.TypeElement = ts.createPropertySignature(
           [ts.createModifier(ts.SyntaxKind.ReadonlyKeyword)],
@@ -56,7 +59,7 @@ export const data = (d: M.Data): AST<ts.TypeAliasDeclaration> => {
       d.introduction.parameters.map(p =>
         ts.createTypeParameterDeclaration(p.name, p.constraint.map(getType).toUndefined())
       ),
-      type
+      unionType
     )
   })
 }
@@ -65,67 +68,96 @@ const getConstructorName = (name: string): string => {
   return name.substring(0, 1).toLocaleLowerCase() + name.substring(1)
 }
 
+const getNullaryConstructorVariableStatement = (
+  tagName: string,
+  c: M.Constructor,
+  introduction: M.Introduction
+): ts.VariableStatement => {
+  const name = getConstructorName(c.name)
+  return ts.createVariableStatement(
+    [ts.createModifier(ts.SyntaxKind.ExportKeyword)],
+    ts.createVariableDeclarationList(
+      [
+        ts.createVariableDeclaration(
+          name,
+          ts.createTypeReferenceNode(
+            introduction.name,
+            introduction.parameters.map(p =>
+              p.constraint
+                .map<ts.TypeNode>(c => getType(c))
+                .getOrElse(ts.createKeywordTypeNode(ts.SyntaxKind.NeverKeyword))
+            )
+          ),
+          ts.createObjectLiteral([ts.createPropertyAssignment(tagName, ts.createStringLiteral(c.name))])
+        )
+      ],
+      ts.NodeFlags.Const
+    )
+  )
+}
+
+const getFunctionDeclaration = (
+  name: string,
+  typeParameters: Array<ts.TypeParameterDeclaration>,
+  parameters: Array<ts.ParameterDeclaration>,
+  type: ts.TypeNode,
+  body: ts.Block
+) => {
+  return ts.createFunctionDeclaration(
+    undefined,
+    [ts.createModifier(ts.SyntaxKind.ExportKeyword)],
+    undefined,
+    name,
+    typeParameters,
+    parameters,
+    type,
+    body
+  )
+}
+
+const getParameterDeclaration = (name: string, type: ts.TypeNode): ts.ParameterDeclaration => {
+  return ts.createParameter(undefined, undefined, undefined, name, undefined, type, undefined)
+}
+
+const getConstructorFunctionDeclaration = (
+  tagName: string,
+  c: M.Constructor,
+  introduction: M.Introduction
+): ts.FunctionDeclaration => {
+  const name = getConstructorName(c.name)
+  const typeParameters = introduction.parameters.map(p => {
+    return ts.createTypeParameterDeclaration(p.name, p.constraint.map(getType).toUndefined())
+  })
+  const parameters = c.members.map((m, position) => {
+    const name = getMemberName(m, position)
+    const type = getType(m.type)
+    return getParameterDeclaration(name, type)
+  })
+  const type = ts.createTypeReferenceNode(
+    introduction.name,
+    introduction.parameters.map(p => ts.createTypeReferenceNode(p.name, []))
+  )
+  const body = ts.createBlock([
+    ts.createReturn(
+      ts.createObjectLiteral([
+        ts.createPropertyAssignment(tagName, ts.createStringLiteral(c.name)),
+        ...c.members.map((m, position) => {
+          const name = getMemberName(m, position)
+          return ts.createShorthandPropertyAssignment(name)
+        })
+      ])
+    )
+  ])
+  return getFunctionDeclaration(name, typeParameters, parameters, type, body)
+}
+
 export const constructors = (d: M.Data): AST<Array<ts.Node>> => {
   return new Reader(e => {
     return d.constructors.toArray().map(c => {
-      const name = getConstructorName(c.name)
       if (c.members.length === 0) {
-        return ts.createVariableStatement(
-          [ts.createModifier(ts.SyntaxKind.ExportKeyword)],
-          ts.createVariableDeclarationList(
-            [
-              ts.createVariableDeclaration(
-                name,
-                ts.createTypeReferenceNode(
-                  d.introduction.name,
-                  d.introduction.parameters.map(p =>
-                    p.constraint
-                      .map<ts.TypeNode>(c => getType(c))
-                      .getOrElse(ts.createKeywordTypeNode(ts.SyntaxKind.NeverKeyword))
-                  )
-                ),
-                ts.createObjectLiteral([ts.createPropertyAssignment(e.tagName, ts.createStringLiteral(c.name))])
-              )
-            ],
-            ts.NodeFlags.Const
-          )
-        )
+        return getNullaryConstructorVariableStatement(e.tagName, c, d.introduction)
       } else {
-        return ts.createFunctionDeclaration(
-          undefined,
-          [ts.createModifier(ts.SyntaxKind.ExportKeyword)],
-          undefined,
-          name,
-          d.introduction.parameters.map(p => {
-            return ts.createTypeParameterDeclaration(p.name, p.constraint.map(getType).toUndefined())
-          }),
-          c.members.map((m, position) => {
-            return ts.createParameter(
-              undefined,
-              undefined,
-              undefined,
-              getMemberName(m, position),
-              undefined,
-              getType(m.type),
-              undefined
-            )
-          }),
-          ts.createTypeReferenceNode(
-            d.introduction.name,
-            d.introduction.parameters.map(p => ts.createTypeReferenceNode(p.name, []))
-          ),
-          ts.createBlock([
-            ts.createReturn(
-              ts.createObjectLiteral([
-                ts.createPropertyAssignment(e.tagName, ts.createStringLiteral(c.name)),
-                ...c.members.map((m, position) => {
-                  const name = getMemberName(m, position)
-                  return ts.createShorthandPropertyAssignment(name)
-                })
-              ])
-            )
-          ])
-        )
+        return getConstructorFunctionDeclaration(e.tagName, c, d.introduction)
       }
     })
   })
@@ -159,79 +191,54 @@ const getHandlerName = (c: M.Constructor): string => {
 
 const getFold = (d: M.Data, name: string, isEager: boolean): AST<ts.FunctionDeclaration> => {
   return new Reader(e => {
+    const matcheeName = e.matcheeName
     const returnTypeParameterName = getFoldReturnTypeParameterName(d.introduction)
-    return ts.createFunctionDeclaration(
-      undefined,
-      [ts.createModifier(ts.SyntaxKind.ExportKeyword)],
-      undefined,
-      name,
-      d.introduction.parameters
-        .concat(M.parameter(returnTypeParameterName, none))
-        .map(p => ts.createTypeParameterDeclaration(p.name, p.constraint.map(getType).toUndefined())),
-      [
-        ts.createParameter(
-          undefined,
-          undefined,
-          undefined,
-          'fa',
-          undefined,
-          ts.createTypeReferenceNode(
-            d.introduction.name,
-            d.introduction.parameters.map(p => ts.createTypeReferenceNode(p.name, []))
-          ),
-          undefined
-        ),
-        ...d.constructors.toArray().map(c => {
-          return ts.createParameter(
-            undefined,
-            undefined,
-            undefined,
-            getHandlerName(c),
-            undefined,
-            isEager && isNullaryConstructor(c)
-              ? ts.createTypeReferenceNode(returnTypeParameterName, [])
-              : ts.createFunctionTypeNode(
-                  undefined,
-                  c.members.map((m, position) => {
-                    return ts.createParameter(
-                      undefined,
-                      undefined,
-                      undefined,
-                      getMemberName(m, position),
-                      undefined,
-                      getType(m.type)
-                    )
-                  }),
-                  ts.createTypeReferenceNode(returnTypeParameterName, [])
-                ),
-            undefined
-          )
-        })
-      ],
-      ts.createTypeReferenceNode(returnTypeParameterName, []),
-      ts.createBlock([
-        ts.createSwitch(
-          ts.createPropertyAccess(ts.createIdentifier('fa'), e.tagName),
-          ts.createCaseBlock(
-            d.constructors.toArray().map(c => {
-              return ts.createCaseClause(ts.createStringLiteral(c.name), [
-                ts.createReturn(
-                  isEager && isNullaryConstructor(c)
-                    ? ts.createIdentifier(getHandlerName(c))
-                    : ts.createCall(
-                        ts.createIdentifier(getHandlerName(c)),
-                        [],
-                        c.members.map((m, position) => {
-                          return ts.createPropertyAccess(ts.createIdentifier('fa'), getMemberName(m, position))
-                        })
-                      )
-                )
-              ])
-            })
-          )
-        )
-      ])
+    const typeParameters = d.introduction.parameters
+      .concat(M.parameter(returnTypeParameterName, none))
+      .map(p => ts.createTypeParameterDeclaration(p.name, p.constraint.map(getType).toUndefined()))
+    const matchee = getParameterDeclaration(
+      matcheeName,
+      ts.createTypeReferenceNode(
+        d.introduction.name,
+        d.introduction.parameters.map(p => ts.createTypeReferenceNode(p.name, []))
+      )
     )
+    const handlers = d.constructors.toArray().map(c => {
+      const type =
+        isEager && isNullaryConstructor(c)
+          ? ts.createTypeReferenceNode(returnTypeParameterName, [])
+          : ts.createFunctionTypeNode(
+              undefined,
+              c.members.map((m, position) => getParameterDeclaration(getMemberName(m, position), getType(m.type))),
+              ts.createTypeReferenceNode(returnTypeParameterName, [])
+            )
+      return getParameterDeclaration(getHandlerName(c), type)
+    })
+    const parameters = [matchee, ...handlers]
+    const type = ts.createTypeReferenceNode(returnTypeParameterName, [])
+    const body = ts.createBlock([
+      ts.createSwitch(
+        ts.createPropertyAccess(ts.createIdentifier(matcheeName), e.tagName),
+        ts.createCaseBlock(
+          d.constructors.toArray().map(c => {
+            return ts.createCaseClause(ts.createStringLiteral(c.name), [
+              ts.createReturn(
+                isEager && isNullaryConstructor(c)
+                  ? ts.createIdentifier(getHandlerName(c))
+                  : ts.createCall(
+                      ts.createIdentifier(getHandlerName(c)),
+                      [],
+                      c.members.map((m, position) => {
+                        return ts.createPropertyAccess(ts.createIdentifier(matcheeName), getMemberName(m, position))
+                      })
+                    )
+              )
+            ])
+          })
+        )
+      )
+    ])
+    return getFunctionDeclaration(name, typeParameters, parameters, type, body)
   })
 }
 

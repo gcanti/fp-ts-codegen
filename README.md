@@ -107,11 +107,14 @@ export interface Options {
   tagName: string
   /** the name prefix used for pattern matching functions */
   foldName: string
+  /** the name used for the input of pattern matching functions */
+  matcheeName: string
 }
 
 export const defaultOptions: Options = {
   tagName: 'type',
-  foldName: 'fold'
+  foldName: 'fold',
+  matcheeName: 'fa'
 }
 ```
 

@@ -220,7 +220,7 @@ export function user(name: string, surname: string): User { return { type: "User
       it('should handle custom tag names', () => {
         const printer = P.print
         assert.strictEqual(
-          printer(H.Option, { tagName: 'tag', foldName: 'fold' }),
+          printer(H.Option, { tagName: 'tag', foldName: 'fold', matcheeName: 'fa' }),
           `export type Option<A> = {
     readonly tag: "None";
 } | {
@@ -243,24 +243,42 @@ export function foldL<A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) 
 } }`
         )
       })
-    })
 
-    it('should handle custom fold names', () => {
-      assertEqual(
-        P.fold,
-        H.Option,
-        [
-          `export function match<A, R>(fa: Option<A>, onNone: R, onSome: (value0: A) => R): R { switch (fa.type) {
+      it('should handle custom fold names', () => {
+        assertEqual(
+          P.fold,
+          H.Option,
+          [
+            `export function match<A, R>(fa: Option<A>, onNone: R, onSome: (value0: A) => R): R { switch (fa.type) {
     case "None": return onNone;
     case "Some": return onSome(fa.value0);
 } }`,
-          `export function matchL<A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) => R): R { switch (fa.type) {
+            `export function matchL<A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) => R): R { switch (fa.type) {
     case "None": return onNone();
     case "Some": return onSome(fa.value0);
 } }`
-        ],
-        { tagName: 'type', foldName: 'match' }
-      )
+          ],
+          { tagName: 'type', foldName: 'match', matcheeName: 'fa' }
+        )
+      })
+
+      it('should handle custom matchee name', () => {
+        assertEqual(
+          P.fold,
+          H.Option,
+          [
+            `export function fold<A, R>(input: Option<A>, onNone: R, onSome: (value0: A) => R): R { switch (input.type) {
+    case "None": return onNone;
+    case "Some": return onSome(input.value0);
+} }`,
+            `export function foldL<A, R>(input: Option<A>, onNone: () => R, onSome: (value0: A) => R): R { switch (input.type) {
+    case "None": return onNone();
+    case "Some": return onSome(input.value0);
+} }`
+          ],
+          { tagName: 'type', foldName: 'fold', matcheeName: 'input' }
+        )
+      })
     })
   })
 })
