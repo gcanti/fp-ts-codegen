@@ -161,8 +161,6 @@ lenses.tagName.set('tag')(defaultOptions)
 # Roadmap
 
 - add configuration options
-  - lazy and eager `fold`
-  - `fold` handlers as a `Record<Tag, Handler>`
   - output `fp-ts` encoding
   - ???
 - derive type class instances? (`Functor`, `Foldable`, etc...)
