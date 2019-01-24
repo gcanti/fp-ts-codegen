@@ -41,8 +41,30 @@ const getMemberName = (m: M.Member, position: number): string => {
   return m.name.getOrElseL(() => `value${position}`)
 }
 
-const getType = (t: M.Type): ts.TypeReferenceNode => {
-  return ts.createTypeReferenceNode(t.name, t.parameters.map(p => getType(p)))
+const getDomainName = (type: M.Type): string => {
+  switch (type.kind) {
+    case 'TypeReference':
+      return lowerCase(type.name)
+    case 'TupleType':
+      return 'tuple'
+    case 'FunctionType':
+      return 'f'
+  }
+}
+
+const getType = (type: M.Type): ts.TypeNode => {
+  switch (type.kind) {
+    case 'TypeReference':
+      return ts.createTypeReferenceNode(type.name, type.parameters.map(p => getType(p)))
+    case 'TupleType':
+      return ts.createTupleTypeNode([getType(type.fst), getType(type.snd), ...type.other.map(getType)])
+    case 'FunctionType':
+      return ts.createFunctionTypeNode(
+        undefined,
+        [getParameterDeclaration(getDomainName(type.domain), getType(type.domain))],
+        getType(type.codomain)
+      )
+  }
 }
 
 export const data = (d: M.Data): AST<ts.TypeAliasDeclaration> => {
@@ -80,7 +102,7 @@ export const data = (d: M.Data): AST<ts.TypeAliasDeclaration> => {
   })
 }
 
-const getConstructorName = (name: string): string => {
+const lowerCase = (name: string): string => {
   return name.substring(0, 1).toLocaleLowerCase() + name.substring(1)
 }
 
@@ -89,7 +111,7 @@ const getNullaryConstructorVariableStatement = (
   c: M.Constructor,
   introduction: M.Introduction
 ): ts.VariableStatement => {
-  const name = getConstructorName(c.name)
+  const name = lowerCase(c.name)
   return ts.createVariableStatement(
     [ts.createModifier(ts.SyntaxKind.ExportKeyword)],
     ts.createVariableDeclarationList(
@@ -140,7 +162,7 @@ const getConstructorFunctionDeclaration = (
   c: M.Constructor,
   introduction: M.Introduction
 ): ts.FunctionDeclaration => {
-  const name = getConstructorName(c.name)
+  const name = lowerCase(c.name)
   const typeParameters = introduction.parameters.map(p => {
     return ts.createTypeParameterDeclaration(p.name, p.constraint.map(getType).toUndefined())
   })
