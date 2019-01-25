@@ -1,5 +1,5 @@
 import { Either } from 'fp-ts/lib/Either'
-import { parse } from './parser'
+import { parse } from './haskell'
 import { print } from './printer'
 import { Options, defaultOptions } from './ast'
 

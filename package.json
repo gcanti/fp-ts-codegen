@@ -1,6 +1,6 @@
 {
   "name": "fp-ts-codegen",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "description": "TypeScript code generation from a haskell-like syntax for ADT",
   "files": [
     "lib"
@@ -16,7 +16,7 @@
     "clean": "rimraf rm -rf lib/*",
     "build": "npm run clean && tsc",
     "dtslint": "dtslint dtslint",
-    "mocha": "mocha -r ts-node/register test/*.ts",
+    "mocha": "mocha -r ts-node/register \"./test/**/*.ts\" --recursive",
     "examples": "rimraf examples/*.ts && ts-node generate-examples.ts && ts-node examples/index.ts"
   },
   "repository": {

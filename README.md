@@ -1,4 +1,4 @@
-POC: TypeScript code generation from a haskell-like syntax for ADT (algebraic data types)
+TypeScript code generation from a haskell-like syntax for ADT (algebraic data types)
 
 # Installation
 
@@ -75,9 +75,11 @@ Syntax: `{ name :: type }`
 
 Example
 
-```ts
-//                      record ---v
-console.log(run('data User = User { name :: string, surname :: string }'))
+Source
+
+```haskell
+--     record ---v
+data User = User { name :: string, surname :: string }
 ```
 
 Output
@@ -100,9 +102,11 @@ Syntax: `(type1, type2, ...types)`
 
 Example
 
-```ts
-//                               tuple ---v
-console.log(run('data Tuple2 A B = Tuple2 (A, B)'))
+Source
+
+```haskell
+--              tuple ---v
+data Tuple2 A B = Tuple2 (A, B)
 ```
 
 Output
@@ -124,9 +128,83 @@ Syntax: `(<name> :: <constraint>)`
 
 Example
 
+Source
+
+```haskell
+--    constraint ---v
+data Constrained (A :: string) = Fetching | GotData A
+```
+
+Output
+
 ```ts
-//                        constraint ---v
-console.log(run('data Constrained (A :: string) = Fetching | GotData A'))
+export type Constrained<A extends string> =
+  | {
+      readonly type: 'Fetching'
+    }
+  | {
+      readonly type: 'GotData'
+      readonly value0: A
+    }
+```
+
+# `fp-ts` encoding
+
+Example
+
+Source
+
+```haskell
+data Option A = None | Some A
+```
+
+Output
+
+```ts
+declare module 'fp-ts/lib/HKT' {
+  interface URI2HKT<A> {
+    Option: Option<A>
+  }
+}
+
+export const URI = 'Option'
+
+export type URI = typeof URI
+
+export type Option<A> = None<A> | Some<A>
+
+export class None<A> {
+  static value: Option<never> = new None()
+  readonly _tag: 'None' = 'None'
+  readonly _A!: A
+  readonly _URI!: URI
+  private constructor() {}
+  fold<R>(onNone: R, _onSome: (value0: A) => R): R {
+    return onNone
+  }
+  foldL<R>(onNone: () => R, _onSome: (value0: A) => R): R {
+    return onNone()
+  }
+}
+
+export class Some<A> {
+  readonly _tag: 'Some' = 'Some'
+  readonly _A!: A
+  readonly _URI!: URI
+  constructor(readonly value0: A) {}
+  fold<R>(_onNone: R, onSome: (value0: A) => R): R {
+    return onSome(this.value0)
+  }
+  foldL<R>(_onNone: () => R, onSome: (value0: A) => R): R {
+    return onSome(this.value0)
+  }
+}
+
+export const none: Option<never> = None.value
+
+export function some<A>(value0: A): Option<A> {
+  return new Some(value0)
+}
 ```
 
 # Options
@@ -146,13 +224,15 @@ export interface Options {
    * or a single object literal `tag -> handler`
    */
   handlersStyle: { type: 'positional' } | { type: 'record'; handlersName: string }
+  encoding: 'literal' | 'fp-ts'
 }
 
 export const defaultOptions: Options = {
   tagName: 'type',
   foldName: 'fold',
   matcheeName: 'fa',
-  handlersStyle: { type: 'positional' }
+  handlersStyle: { type: 'positional' },
+  encoding: 'literal'
 }
 ```
 
@@ -179,7 +259,7 @@ lenses.tagName.set('tag')(defaultOptions)
 - `ast` module: internal model -> TypeScript AST
 - `model` module: internal model
 - `printer` module: internal model -> TypeScript code
-- `parser` module: haskell-like syntax -> internal model
+- `haskell` module: haskell-like syntax -> internal model
 - `index` module: haskell-like syntax -> TypeScript code
 
 # Roadmap

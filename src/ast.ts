@@ -17,13 +17,15 @@ export interface Options {
    * or a single object literal `tag -> handler`
    */
   handlersStyle: { type: 'positional' } | { type: 'record'; handlersName: string }
+  encoding: 'literal' | 'fp-ts'
 }
 
 export const defaultOptions: Options = {
   tagName: 'type',
   foldName: 'fold',
   matcheeName: 'fa',
-  handlersStyle: { type: 'positional' }
+  handlersStyle: { type: 'positional' },
+  encoding: 'literal'
 }
 
 const getLens = Lens.fromProp<Options>()
@@ -32,7 +34,8 @@ export const lenses: { [K in keyof Options]: Lens<Options, Options[K]> } = {
   tagName: getLens('tagName'),
   foldName: getLens('foldName'),
   matcheeName: getLens('matcheeName'),
-  handlersStyle: getLens('handlersStyle')
+  handlersStyle: getLens('handlersStyle'),
+  encoding: getLens('encoding')
 }
 
 export interface AST<A> extends Reader<Options, A> {}
@@ -41,10 +44,10 @@ const getMemberName = (m: M.Member, position: number): string => {
   return m.name.getOrElseL(() => `value${position}`)
 }
 
-const getDomainName = (type: M.Type): string => {
+const getDomainParameterName = (type: M.Type): string => {
   switch (type.kind) {
     case 'TypeReference':
-      return lowerCase(type.name)
+      return getFirstLetterLowerCase(type.name)
     case 'TupleType':
       return 'tuple'
     case 'FunctionType':
@@ -52,85 +55,272 @@ const getDomainName = (type: M.Type): string => {
   }
 }
 
-const getType = (type: M.Type): ts.TypeNode => {
+const getTypeNode = (type: M.Type): ts.TypeNode => {
   switch (type.kind) {
     case 'TypeReference':
-      return ts.createTypeReferenceNode(type.name, type.parameters.map(p => getType(p)))
+      return ts.createTypeReferenceNode(type.name, type.parameters.map(p => getTypeNode(p)))
     case 'TupleType':
-      return ts.createTupleTypeNode([getType(type.fst), getType(type.snd), ...type.other.map(getType)])
+      return ts.createTupleTypeNode([getTypeNode(type.fst), getTypeNode(type.snd), ...type.other.map(getTypeNode)])
     case 'FunctionType':
       return ts.createFunctionTypeNode(
         undefined,
-        [getParameterDeclaration(getDomainName(type.domain), getType(type.domain))],
-        getType(type.codomain)
+        [getParameterDeclaration(getDomainParameterName(type.domain), getTypeNode(type.domain))],
+        getTypeNode(type.codomain)
       )
   }
 }
 
-export const data = (d: M.Data): AST<ts.TypeAliasDeclaration> => {
+const getDataLiteralEncoding = (d: M.Data): AST<Array<ts.Node>> => {
   return new Reader(e => {
     const unionType = ts.createUnionTypeNode(
       d.constructors.toArray().map(c => {
-        const tag: ts.TypeElement = ts.createPropertySignature(
-          [ts.createModifier(ts.SyntaxKind.ReadonlyKeyword)],
-          e.tagName,
-          undefined,
-          ts.createLiteralTypeNode(ts.createLiteral(c.name)),
-          undefined
-        )
+        const tag: ts.TypeElement = getPropertySignature(e.tagName, ts.createLiteralTypeNode(ts.createLiteral(c.name)))
         const members: Array<ts.TypeElement> = c.members.map((m, position) => {
-          return ts.createPropertySignature(
-            [ts.createModifier(ts.SyntaxKind.ReadonlyKeyword)],
-            getMemberName(m, position),
-            undefined,
-            getType(m.type),
-            undefined
-          )
+          return getPropertySignature(getMemberName(m, position), getTypeNode(m.type))
         })
         return ts.createTypeLiteralNode([tag, ...members])
       })
     )
-    return ts.createTypeAliasDeclaration(
-      undefined,
-      [ts.createModifier(ts.SyntaxKind.ExportKeyword)],
-      d.introduction.name,
-      d.introduction.parameters.map(p =>
-        ts.createTypeParameterDeclaration(p.name, p.constraint.map(getType).toUndefined())
-      ),
-      unionType
-    )
+    return [
+      getTypeAliasDeclaration(
+        d.introduction.name,
+        unionType,
+        d.introduction.parameters.map(p =>
+          ts.createTypeParameterDeclaration(p.name, p.constraint.map(getTypeNode).toUndefined())
+        )
+      )
+    ]
   })
 }
 
-const lowerCase = (name: string): string => {
+const getTypeAliasDeclaration = (
+  name: string,
+  type: ts.TypeNode,
+  typeParameters?: Array<ts.TypeParameterDeclaration>
+) => {
+  return ts.createTypeAliasDeclaration(
+    undefined,
+    [ts.createModifier(ts.SyntaxKind.ExportKeyword)],
+    name,
+    typeParameters,
+    type
+  )
+}
+
+const URI2HKTNames: Record<number, string> = {
+  1: 'URI2HKT',
+  2: 'URI2HKT2',
+  3: 'URI2HKT3',
+  4: 'URI2HKT4'
+}
+const URI2HKTParametersNames = ['A', 'L', 'U', 'X']
+
+const getPropertySignature = (name: string, type: ts.TypeNode, isReadonly: boolean = true): ts.PropertySignature => {
+  return ts.createPropertySignature(
+    isReadonly ? [ts.createModifier(ts.SyntaxKind.ReadonlyKeyword)] : undefined,
+    name,
+    undefined,
+    type,
+    undefined
+  )
+}
+
+const getInterfaceDeclaration = (
+  name: string,
+  typeParameters: Array<ts.TypeParameterDeclaration>,
+  members: Array<ts.TypeElement>
+): ts.InterfaceDeclaration => {
+  return ts.createInterfaceDeclaration(undefined, undefined, name, typeParameters, undefined, members)
+}
+
+const getDataModuleDeclaration = (d: M.Data): ts.ModuleDeclaration => {
+  const len = getDataParametersLength(d)
+  const URI2HKT = URI2HKTNames[len]
+  const parameters = URI2HKTParametersNames.slice(0, len).reverse()
+
+  return ts.createModuleDeclaration(
+    undefined,
+    [ts.createModifier(ts.SyntaxKind.DeclareKeyword)],
+    ts.createStringLiteral('fp-ts/lib/HKT'),
+    ts.createModuleBlock([
+      getInterfaceDeclaration(URI2HKT, parameters.map(p => ts.createTypeParameterDeclaration(p)), [
+        getPropertySignature(
+          d.introduction.name,
+          ts.createTypeReferenceNode(d.introduction.name, parameters.map(p => ts.createTypeReferenceNode(p, []))),
+          false
+        )
+      ])
+    ]),
+    undefined
+  )
+}
+
+const getPropertyDeclaration = (
+  name: string,
+  type: ts.TypeNode,
+  inizializer?: ts.Expression,
+  isExclamation: boolean = false
+): ts.PropertyDeclaration => {
+  return ts.createProperty(
+    undefined,
+    [ts.createModifier(ts.SyntaxKind.ReadonlyKeyword)],
+    name,
+    isExclamation ? ts.createToken(ts.SyntaxKind.ExclamationToken) : undefined,
+    type,
+    inizializer
+  )
+}
+
+const getMethod = (
+  name: string,
+  typeParameters: Array<ts.TypeParameterDeclaration>,
+  parameters: Array<ts.ParameterDeclaration>,
+  returnType: ts.TypeNode,
+  body: ts.Block
+) => {
+  return ts.createMethod(undefined, undefined, undefined, name, undefined, typeParameters, parameters, returnType, body)
+}
+
+const getFoldMethod = (d: M.Data, c: M.Constructor, name: string, isEager: boolean) => {
+  const returnTypeParameterName = getFoldReturnTypeParameterName(d.introduction)
+  const handlerExpression = ts.createIdentifier(getFoldHandlerName(c))
+  const returnExpression =
+    isNullaryConstructor(c) && isEager
+      ? handlerExpression
+      : ts.createCall(
+          handlerExpression,
+          undefined,
+          c.members.map((m, position) => {
+            return ts.createPropertyAccess(ts.createThis(), getMemberName(m, position))
+          })
+        )
+  const fold = getMethod(
+    name,
+    [ts.createTypeParameterDeclaration(returnTypeParameterName)],
+    getFoldPositionalHandlers(d, isEager, c),
+    ts.createTypeReferenceNode(returnTypeParameterName, []),
+    ts.createBlock([ts.createReturn(returnExpression)])
+  )
+  return fold
+}
+
+const getDataFptsEncoding = (d: M.Data): AST<Array<ts.Node>> => {
+  return new Reader(e => {
+    const unionType = ts.createUnionTypeNode(
+      d.constructors.toArray().map(c => {
+        return ts.createTypeReferenceNode(
+          c.name,
+          d.introduction.parameters.map(p => ts.createTypeReferenceNode(p.name, []))
+        )
+      })
+    )
+
+    const moduleDeclaration = getDataModuleDeclaration(d)
+
+    const uriValue = getConstantDeclaration('URI', ts.createStringLiteral(d.introduction.name))
+
+    const uriType = getTypeAliasDeclaration('URI', ts.createTypeQueryNode(ts.createIdentifier('URI')))
+
+    const classes = d.constructors.toArray().map(c => {
+      const typeParameters = d.introduction.parameters.map(p => ts.createTypeParameterDeclaration(p.name))
+      const parameters: Array<ts.ParameterDeclaration> = c.members.map((m, position) => {
+        return getParameterDeclaration(getMemberName(m, position), getTypeNode(m.type), true)
+      })
+      const isNullary = isNullaryConstructor(c)
+      const constructor = ts.createConstructor(
+        undefined,
+        isNullary ? [ts.createModifier(ts.SyntaxKind.PrivateKeyword)] : undefined,
+        parameters,
+        ts.createBlock([])
+      )
+
+      const tag = getPropertyDeclaration(
+        '_tag',
+        ts.createLiteralTypeNode(ts.createStringLiteral(c.name)),
+        ts.createStringLiteral(c.name)
+      )
+
+      const len = getDataParametersLength(d)
+      const fptsParameters = URI2HKTParametersNames.slice(0, len).map(name =>
+        getPropertyDeclaration(`_${name}`, ts.createTypeReferenceNode(name, []), undefined, true)
+      )
+
+      const URI = getPropertyDeclaration('_URI', ts.createTypeReferenceNode('URI', []), undefined, true)
+
+      // TODO
+      let folds: Array<ts.ClassElement>
+      if (isEagerFoldSupported(d)) {
+        folds = [getFoldMethod(d, c, e.foldName, true), getFoldMethod(d, c, `${e.foldName}L`, false)]
+      } else {
+        folds = [getFoldMethod(d, c, e.foldName, false)]
+      }
+
+      const members: Array<ts.ClassElement> = [tag, ...fptsParameters, URI, constructor, ...folds]
+      if (isNullary) {
+        members.unshift(
+          ts.createProperty(
+            undefined,
+            [ts.createModifier(ts.SyntaxKind.StaticKeyword)],
+            'value',
+            undefined,
+            ts.createTypeReferenceNode(
+              d.introduction.name,
+              d.introduction.parameters.map(_ => ts.createTypeReferenceNode('never', []))
+            ),
+            ts.createNew(ts.createIdentifier(c.name), undefined, [])
+          )
+        )
+      }
+      return ts.createClassDeclaration(
+        undefined,
+        [ts.createModifier(ts.SyntaxKind.ExportKeyword)],
+        c.name,
+        typeParameters,
+        undefined,
+        members
+      )
+    })
+
+    return [
+      moduleDeclaration,
+      uriValue,
+      uriType,
+      getTypeAliasDeclaration(
+        d.introduction.name,
+        unionType,
+        d.introduction.parameters.map(p =>
+          ts.createTypeParameterDeclaration(p.name, p.constraint.map(getTypeNode).toUndefined())
+        )
+      ),
+      ...classes
+    ]
+  })
+}
+
+const getDataParametersLength = (d: M.Data): number => {
+  return d.introduction.parameters.length
+}
+
+const shouldUseLiteralEncoding = (d: M.Data): AST<boolean> => {
+  return new Reader(e => e.encoding === 'literal' || getDataParametersLength(d) > URI2HKTParametersNames.length)
+}
+
+export const data = (d: M.Data): AST<Array<ts.Node>> => {
+  return shouldUseLiteralEncoding(d).chain(yes => (yes ? getDataLiteralEncoding(d) : getDataFptsEncoding(d)))
+}
+
+const getFirstLetterLowerCase = (name: string): string => {
   return name.substring(0, 1).toLocaleLowerCase() + name.substring(1)
 }
 
-const getNullaryConstructorVariableStatement = (
-  tagName: string,
-  c: M.Constructor,
-  introduction: M.Introduction
+const getConstantDeclaration = (
+  name: string,
+  initializer: ts.Expression,
+  type?: ts.TypeReferenceNode
 ): ts.VariableStatement => {
-  const name = lowerCase(c.name)
   return ts.createVariableStatement(
     [ts.createModifier(ts.SyntaxKind.ExportKeyword)],
-    ts.createVariableDeclarationList(
-      [
-        ts.createVariableDeclaration(
-          name,
-          ts.createTypeReferenceNode(
-            introduction.name,
-            introduction.parameters.map(p =>
-              p.constraint
-                .map<ts.TypeNode>(c => getType(c))
-                .getOrElse(ts.createKeywordTypeNode(ts.SyntaxKind.NeverKeyword))
-            )
-          ),
-          ts.createObjectLiteral([ts.createPropertyAssignment(tagName, ts.createStringLiteral(c.name))])
-        )
-      ],
-      ts.NodeFlags.Const
-    )
+    ts.createVariableDeclarationList([ts.createVariableDeclaration(name, type, initializer)], ts.NodeFlags.Const)
   )
 }
 
@@ -153,59 +343,143 @@ const getFunctionDeclaration = (
   )
 }
 
-const getParameterDeclaration = (name: string, type: ts.TypeNode): ts.ParameterDeclaration => {
-  return ts.createParameter(undefined, undefined, undefined, name, undefined, type, undefined)
+const getParameterDeclaration = (
+  name: string,
+  type: ts.TypeNode,
+  isReadonly: boolean = false
+): ts.ParameterDeclaration => {
+  return ts.createParameter(
+    undefined,
+    isReadonly ? [ts.createModifier(ts.SyntaxKind.ReadonlyKeyword)] : undefined,
+    undefined,
+    name,
+    undefined,
+    type,
+    undefined
+  )
 }
 
-const getConstructorFunctionDeclaration = (
-  tagName: string,
-  c: M.Constructor,
-  introduction: M.Introduction
-): ts.FunctionDeclaration => {
-  const name = lowerCase(c.name)
-  const typeParameters = introduction.parameters.map(p => {
-    return ts.createTypeParameterDeclaration(p.name, p.constraint.map(getType).toUndefined())
-  })
-  const parameters = c.members.map((m, position) => {
-    const name = getMemberName(m, position)
-    const type = getType(m.type)
-    return getParameterDeclaration(name, type)
-  })
-  const type = ts.createTypeReferenceNode(
-    introduction.name,
-    introduction.parameters.map(p => ts.createTypeReferenceNode(p.name, []))
-  )
-  const body = ts.createBlock([
-    ts.createReturn(
-      ts.createObjectLiteral([
-        ts.createPropertyAssignment(tagName, ts.createStringLiteral(c.name)),
-        ...c.members.map((m, position) => {
-          const name = getMemberName(m, position)
-          return ts.createShorthandPropertyAssignment(name)
-        })
-      ])
+const getLiteralNullaryConstructor = (c: M.Constructor, introduction: M.Introduction): AST<ts.Node> => {
+  return new Reader(e => {
+    const name = getFirstLetterLowerCase(c.name)
+    const type = ts.createTypeReferenceNode(
+      introduction.name,
+      introduction.parameters.map(p =>
+        p.constraint.map(c => getTypeNode(c)).getOrElse(ts.createKeywordTypeNode(ts.SyntaxKind.NeverKeyword))
+      )
     )
-  ])
-  return getFunctionDeclaration(name, typeParameters, parameters, type, body)
+    const initializer = ts.createObjectLiteral([ts.createPropertyAssignment(e.tagName, ts.createStringLiteral(c.name))])
+    return getConstantDeclaration(name, initializer, type)
+  })
+}
+
+const getLiteralConstructor = (c: M.Constructor, introduction: M.Introduction): AST<ts.Node> => {
+  return new Reader(e => {
+    const name = getFirstLetterLowerCase(c.name)
+    const typeParameters = introduction.parameters.map(p => {
+      return ts.createTypeParameterDeclaration(p.name, p.constraint.map(getTypeNode).toUndefined())
+    })
+    const parameters = c.members.map((m, position) => {
+      const name = getMemberName(m, position)
+      const type = getTypeNode(m.type)
+      return getParameterDeclaration(name, type)
+    })
+    const type = ts.createTypeReferenceNode(
+      introduction.name,
+      introduction.parameters.map(p => ts.createTypeReferenceNode(p.name, []))
+    )
+    const body = ts.createBlock([
+      ts.createReturn(
+        ts.createObjectLiteral([
+          ts.createPropertyAssignment(e.tagName, ts.createStringLiteral(c.name)),
+          ...c.members.map((m, position) => {
+            const name = getMemberName(m, position)
+            return ts.createShorthandPropertyAssignment(name)
+          })
+        ])
+      )
+    ])
+    return getFunctionDeclaration(name, typeParameters, parameters, type, body)
+  })
+}
+
+const getConstructorsLiteralEncoding = (d: M.Data): AST<Array<ts.Node>> => {
+  const constructors = d.constructors.toArray().map(c => {
+    if (c.members.length === 0) {
+      return getLiteralNullaryConstructor(c, d.introduction)
+    } else {
+      return getLiteralConstructor(c, d.introduction)
+    }
+  })
+  return array.sequence(reader)(constructors)
+}
+
+const getFptsNullaryConstructor = (c: M.Constructor, introduction: M.Introduction): AST<ts.Node> => {
+  return new Reader(_ => {
+    const name = getFirstLetterLowerCase(c.name)
+    const type = ts.createTypeReferenceNode(
+      introduction.name,
+      introduction.parameters.map(p =>
+        p.constraint.map(c => getTypeNode(c)).getOrElse(ts.createKeywordTypeNode(ts.SyntaxKind.NeverKeyword))
+      )
+    )
+    const initializer = ts.createPropertyAccess(ts.createIdentifier(c.name), 'value')
+    return getConstantDeclaration(name, initializer, type)
+  })
+}
+
+const getFptsConstructor = (c: M.Constructor, introduction: M.Introduction): AST<ts.Node> => {
+  return new Reader(_ => {
+    const name = getFirstLetterLowerCase(c.name)
+    const typeParameters = introduction.parameters.map(p => {
+      return ts.createTypeParameterDeclaration(p.name, p.constraint.map(getTypeNode).toUndefined())
+    })
+    const parameters = c.members.map((m, position) => {
+      const name = getMemberName(m, position)
+      const type = getTypeNode(m.type)
+      return getParameterDeclaration(name, type)
+    })
+    const type = ts.createTypeReferenceNode(
+      introduction.name,
+      introduction.parameters.map(p => ts.createTypeReferenceNode(p.name, []))
+    )
+    const body = ts.createBlock([
+      ts.createReturn(
+        ts.createNew(
+          ts.createIdentifier(c.name),
+          undefined,
+          c.members.map((m, position) => {
+            return ts.createIdentifier(getMemberName(m, position))
+          })
+        )
+      )
+    ])
+    return getFunctionDeclaration(name, typeParameters, parameters, type, body)
+  })
+}
+
+const getConstructorsFptsEncoding = (d: M.Data): AST<Array<ts.Node>> => {
+  const constructors = d.constructors.toArray().map(c => {
+    if (c.members.length === 0) {
+      return getFptsNullaryConstructor(c, d.introduction)
+    } else {
+      return getFptsConstructor(c, d.introduction)
+    }
+  })
+  return array.sequence(reader)(constructors)
 }
 
 export const constructors = (d: M.Data): AST<Array<ts.Node>> => {
-  return new Reader(e => {
-    return d.constructors.toArray().map(c => {
-      if (c.members.length === 0) {
-        return getNullaryConstructorVariableStatement(e.tagName, c, d.introduction)
-      } else {
-        return getConstructorFunctionDeclaration(e.tagName, c, d.introduction)
-      }
-    })
-  })
+  return shouldUseLiteralEncoding(d).chain(yes =>
+    yes ? getConstructorsLiteralEncoding(d) : getConstructorsFptsEncoding(d)
+  )
 }
 
 const isNullaryConstructor = (c: M.Constructor): boolean => {
   return c.members.length === 0
 }
 
-const admitsEagerFold = (d: M.Data): boolean => {
+const isEagerFoldSupported = (d: M.Data): boolean => {
   return d.constructors.toArray().some(isNullaryConstructor)
 }
 
@@ -223,11 +497,15 @@ const getFoldReturnTypeParameterName = (i: M.Introduction): string => {
   return candidate
 }
 
-const getHandlerName = (c: M.Constructor): string => {
+const getFoldHandlerName = (c: M.Constructor): string => {
   return `on${c.name}`
 }
 
-const getPositionalFoldHandlers = (d: M.Data, isEager: boolean): Array<ts.ParameterDeclaration> => {
+const getFoldPositionalHandlers = (
+  d: M.Data,
+  isEager: boolean,
+  usedConstructor?: M.Constructor
+): Array<ts.ParameterDeclaration> => {
   const returnTypeParameterName = getFoldReturnTypeParameterName(d.introduction)
   return d.constructors.toArray().map(c => {
     const type =
@@ -235,14 +513,16 @@ const getPositionalFoldHandlers = (d: M.Data, isEager: boolean): Array<ts.Parame
         ? ts.createTypeReferenceNode(returnTypeParameterName, [])
         : ts.createFunctionTypeNode(
             undefined,
-            c.members.map((m, position) => getParameterDeclaration(getMemberName(m, position), getType(m.type))),
+            c.members.map((m, position) => getParameterDeclaration(getMemberName(m, position), getTypeNode(m.type))),
             ts.createTypeReferenceNode(returnTypeParameterName, [])
           )
-    return getParameterDeclaration(getHandlerName(c), type)
+    const isParameterUnused = usedConstructor !== undefined && usedConstructor !== c
+    const foldHandlerName = isParameterUnused ? `_${getFoldHandlerName(c)}` : getFoldHandlerName(c)
+    return getParameterDeclaration(foldHandlerName, type)
   })
 }
 
-const getRecordFoldHandlers = (d: M.Data, handlersName: string, isEager: boolean): Array<ts.ParameterDeclaration> => {
+const getFoldRecordHandlers = (d: M.Data, handlersName: string, isEager: boolean): Array<ts.ParameterDeclaration> => {
   const returnTypeParameterName = getFoldReturnTypeParameterName(d.introduction)
   const type = ts.createTypeLiteralNode(
     d.constructors.toArray().map(c => {
@@ -251,22 +531,22 @@ const getRecordFoldHandlers = (d: M.Data, handlersName: string, isEager: boolean
           ? ts.createTypeReferenceNode(returnTypeParameterName, [])
           : ts.createFunctionTypeNode(
               undefined,
-              c.members.map((m, position) => getParameterDeclaration(getMemberName(m, position), getType(m.type))),
+              c.members.map((m, position) => getParameterDeclaration(getMemberName(m, position), getTypeNode(m.type))),
               ts.createTypeReferenceNode(returnTypeParameterName, [])
             )
-      return ts.createPropertySignature(undefined, getHandlerName(c), undefined, type, undefined)
+      return getPropertySignature(getFoldHandlerName(c), type, false)
     })
   )
   return [getParameterDeclaration(handlersName, type)]
 }
 
-const getPositionalFoldBody = (d: M.Data, matcheeName: string, tagName: string, isEager: boolean) => {
+const getFoldPositionalBody = (d: M.Data, matcheeName: string, tagName: string, isEager: boolean) => {
   return ts.createBlock([
     ts.createSwitch(
       ts.createPropertyAccess(ts.createIdentifier(matcheeName), tagName),
       ts.createCaseBlock(
         d.constructors.toArray().map(c => {
-          const access = ts.createIdentifier(getHandlerName(c))
+          const access = ts.createIdentifier(getFoldHandlerName(c))
           return ts.createCaseClause(ts.createStringLiteral(c.name), [
             ts.createReturn(
               isEager && isNullaryConstructor(c)
@@ -286,13 +566,13 @@ const getPositionalFoldBody = (d: M.Data, matcheeName: string, tagName: string, 
   ])
 }
 
-const getRecordFoldBody = (d: M.Data, matcheeName: string, tagName: string, handlersName: string, isEager: boolean) => {
+const getFoldRecordBody = (d: M.Data, matcheeName: string, tagName: string, handlersName: string, isEager: boolean) => {
   return ts.createBlock([
     ts.createSwitch(
       ts.createPropertyAccess(ts.createIdentifier(matcheeName), tagName),
       ts.createCaseBlock(
         d.constructors.toArray().map(c => {
-          const access = ts.createPropertyAccess(ts.createIdentifier(handlersName), getHandlerName(c))
+          const access = ts.createPropertyAccess(ts.createIdentifier(handlersName), getFoldHandlerName(c))
           return ts.createCaseClause(ts.createStringLiteral(c.name), [
             ts.createReturn(
               isEager && isNullaryConstructor(c)
@@ -320,7 +600,7 @@ const getFold = (d: M.Data, name: string, isEager: boolean): AST<ts.FunctionDecl
     const returnTypeParameterName = getFoldReturnTypeParameterName(d.introduction)
     const typeParameters = d.introduction.parameters
       .concat(M.parameter(returnTypeParameterName, none))
-      .map(p => ts.createTypeParameterDeclaration(p.name, p.constraint.map(getType).toUndefined()))
+      .map(p => ts.createTypeParameterDeclaration(p.name, p.constraint.map(getTypeNode).toUndefined()))
     const matchee = getParameterDeclaration(
       matcheeName,
       ts.createTypeReferenceNode(
@@ -330,14 +610,14 @@ const getFold = (d: M.Data, name: string, isEager: boolean): AST<ts.FunctionDecl
     )
     const handlers =
       handlersStyle.type === 'positional'
-        ? getPositionalFoldHandlers(d, isEager)
-        : getRecordFoldHandlers(d, handlersStyle.handlersName, isEager)
+        ? getFoldPositionalHandlers(d, isEager)
+        : getFoldRecordHandlers(d, handlersStyle.handlersName, isEager)
     const parameters = [matchee, ...handlers]
     const type = ts.createTypeReferenceNode(returnTypeParameterName, [])
     const body =
       handlersStyle.type === 'positional'
-        ? getPositionalFoldBody(d, matcheeName, tagName, isEager)
-        : getRecordFoldBody(d, matcheeName, tagName, handlersStyle.handlersName, isEager)
+        ? getFoldPositionalBody(d, matcheeName, tagName, isEager)
+        : getFoldRecordBody(d, matcheeName, tagName, handlersStyle.handlersName, isEager)
     return getFunctionDeclaration(name, typeParameters, parameters, type, body)
   })
 }
@@ -345,11 +625,13 @@ const getFold = (d: M.Data, name: string, isEager: boolean): AST<ts.FunctionDecl
 export const fold = (d: M.Data): AST<Array<ts.FunctionDeclaration>> => {
   return ask<Options>().chain(e => {
     let folds: Array<AST<ts.FunctionDeclaration>> = empty
-    if (isSumType(d)) {
-      if (admitsEagerFold(d)) {
-        folds = [getFold(d, e.foldName, true), getFold(d, `${e.foldName}L`, false)]
-      } else {
-        folds = [getFold(d, e.foldName, false)]
+    if (e.encoding === 'literal') {
+      if (isSumType(d)) {
+        if (isEagerFoldSupported(d)) {
+          folds = [getFold(d, e.foldName, true), getFold(d, `${e.foldName}L`, false)]
+        } else {
+          folds = [getFold(d, e.foldName, false)]
+        }
       }
     }
     return array.sequence(reader)(folds)

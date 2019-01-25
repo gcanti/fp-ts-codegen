@@ -1,6 +1,6 @@
 import * as assert from 'assert'
 import { Parser } from 'parser-ts'
-import * as P from '../src/parser'
+import * as P from '../src/haskell'
 import * as M from '../src/model'
 import * as E from './examples'
 import { right, left } from 'fp-ts/lib/Either'
@@ -24,7 +24,7 @@ const assertFailure = <A>(parser: Parser<A>, input: string, expected: string) =>
   }
 }
 
-describe('parser', () => {
+describe('[parser] Haskell', () => {
   it('identifier', () => {
     const parser = P.identifier
     assertSuccess(parser, 'a', 'a')
