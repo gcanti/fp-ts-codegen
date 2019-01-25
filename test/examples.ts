@@ -11,7 +11,7 @@ export const Maybe = M.data(M.introduction('Maybe', [M.parameter('A')]), M.const
   M.constructor('Just', [M.member(M.typeReference('A'), some('value'))])
 ])
 
-// data Either L A = Left L | Right A
+// data Either L R = Left L | Right R
 export const Either = M.data(
   M.introduction('Either', [M.parameter('L'), M.parameter('R')]),
   M.constructor('Left', [M.member(M.typeReference('L'))]),

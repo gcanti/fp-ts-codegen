@@ -1,18 +1,14 @@
 import * as assert from 'assert'
-import * as P from '../src/printer'
-import * as M from '../src/model'
-import * as E from './examples'
-import { Options, defaultOptions, lenses } from '../src/ast'
+import { defaultOptions, lenses } from '../../src/ast'
+import * as M from '../../src/model'
+import * as P from '../../src/printer'
+import * as E from '../examples'
+import { assertPrinterEqual } from '../helpers'
 
-const assertEqual = <A, B>(f: (a: A) => P.Printer<B>, a: A, expected: B, options: Options = defaultOptions) => {
-  const actual = f(a).run(options)
-  assert.deepStrictEqual(actual, expected)
-}
-
-describe('printer', () => {
+describe('[printer] literal encoding', () => {
   describe('data', () => {
-    it('data', () => {
-      assertEqual(
+    it('should support type literal constructors', () => {
+      assertPrinterEqual(
         P.data,
         E.Option,
         `export type Option<A> = {
@@ -22,7 +18,7 @@ describe('printer', () => {
     readonly value0: A;
 };`
       )
-      assertEqual(
+      assertPrinterEqual(
         P.data,
         E.Either,
         `export type Either<L, R> = {
@@ -33,7 +29,7 @@ describe('printer', () => {
     readonly value0: R;
 };`
       )
-      assertEqual(
+      assertPrinterEqual(
         P.data,
         E.Tree,
         `export type Tree<A> = {
@@ -48,7 +44,7 @@ describe('printer', () => {
     })
 
     it('should handle only one constructor', () => {
-      assertEqual(
+      assertPrinterEqual(
         P.data,
         E.User,
         `export type User = {
@@ -60,7 +56,7 @@ describe('printer', () => {
     })
 
     it('should handle nullary constructors', () => {
-      assertEqual(
+      assertPrinterEqual(
         P.data,
         E.FooBar,
         `export type FooBar = {
@@ -74,29 +70,29 @@ describe('printer', () => {
 
   describe('constructors', () => {
     it('constructors', () => {
-      assertEqual(P.constructors, E.Option, [
+      assertPrinterEqual(P.constructors, E.Option, [
         'export const none: Option<never> = { type: "None" };',
         'export function some<A>(value0: A): Option<A> { return { type: "Some", value0 }; }'
       ])
-      assertEqual(P.constructors, E.Either, [
+      assertPrinterEqual(P.constructors, E.Either, [
         'export function left<L, R>(value0: L): Either<L, R> { return { type: "Left", value0 }; }',
         'export function right<L, R>(value0: R): Either<L, R> { return { type: "Right", value0 }; }'
       ])
-      assertEqual(P.constructors, E.Tree, [
+      assertPrinterEqual(P.constructors, E.Tree, [
         'export const leaf: Tree<never> = { type: "Leaf" };',
         'export function node<A>(value0: Tree<A>, value1: A, value2: Tree<A>): Tree<A> { return { type: "Node", value0, value1, value2 }; }'
       ])
     })
 
     it('nullary constructors', () => {
-      assertEqual(P.constructors, E.FooBar, [
+      assertPrinterEqual(P.constructors, E.FooBar, [
         'export const foo: FooBar = { type: "Foo" };',
         'export const bar: FooBar = { type: "Bar" };'
       ])
     })
 
     it('monomorphic constructors', () => {
-      assertEqual(P.constructors, E.User, [
+      assertPrinterEqual(P.constructors, E.User, [
         'export function user(name: string, surname: string): User { return { type: "User", name, surname }; }'
       ])
     })
@@ -104,17 +100,17 @@ describe('printer', () => {
 
   describe('fold', () => {
     it('should not emit a fold if data is not a sum type', () => {
-      assertEqual(P.fold, E.User, [])
+      assertPrinterEqual(P.fold, E.User, [])
     })
 
     it('should not emit a fold if all constructors are not nullary', () => {
-      assertEqual(P.fold, E.Either, [
+      assertPrinterEqual(P.fold, E.Either, [
         'export function fold<L, R, R1>(fa: Either<L, R>, onLeft: (value0: L) => R1, onRight: (value0: R) => R1): R1 { switch (fa.type) {\n    case "Left": return onLeft(fa.value0);\n    case "Right": return onRight(fa.value0);\n} }'
       ])
     })
 
     it('should handle monomorphic data', () => {
-      assertEqual(P.fold, E.FooBar, [
+      assertPrinterEqual(P.fold, E.FooBar, [
         'export function fold<R>(fa: FooBar, onFoo: R, onBar: R): R { switch (fa.type) {\n    case "Foo": return onFoo;\n    case "Bar": return onBar;\n} }',
         'export function foldL<R>(fa: FooBar, onFoo: () => R, onBar: () => R): R { switch (fa.type) {\n    case "Foo": return onFoo();\n    case "Bar": return onBar();\n} }'
       ])
@@ -316,7 +312,7 @@ export function foldL<A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) 
       })
 
       it('should handle custom fold names', () => {
-        assertEqual(
+        assertPrinterEqual(
           P.fold,
           E.Option,
           [
@@ -334,7 +330,7 @@ export function foldL<A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) 
       })
 
       it('should handle custom matchee name', () => {
-        assertEqual(
+        assertPrinterEqual(
           P.fold,
           E.Option,
           [
@@ -352,7 +348,7 @@ export function foldL<A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) 
       })
 
       it('should handle handlersName + handlersStyle', () => {
-        assertEqual(
+        assertPrinterEqual(
           P.fold,
           E.Option,
           [

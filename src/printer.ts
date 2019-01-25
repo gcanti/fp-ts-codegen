@@ -14,7 +14,7 @@ export const ast = (ast: ts.Node): string => {
 }
 
 export const data = (d: M.Data): Printer<string> => {
-  return A.data(d).map(ast)
+  return A.data(d).map(declarations => declarations.map(ast).join('\n\n'))
 }
 
 export const constructors = (d: M.Data): Printer<Array<string>> => {
@@ -25,9 +25,14 @@ export const fold = (d: M.Data): Printer<Array<string>> => {
   return A.fold(d).map(functionDeclarations => functionDeclarations.map(ast))
 }
 
+export const all = (d: M.Data): Printer<Array<string>> => {
+  return data(d).chain(data =>
+    constructors(d).chain(constructors => fold(d).map(folds => [data, ...constructors, ...folds]))
+  )
+}
+
 export const print = (d: M.Data, options: A.Options = A.defaultOptions): string => {
-  const dataCode = data(d).run(options)
-  const constructorsCode = constructors(d).run(options)
-  const foldCode = fold(d).run(options)
-  return [dataCode, ...constructorsCode, ...foldCode].join('\n\n')
+  return all(d)
+    .run(options)
+    .join('\n\n')
 }
