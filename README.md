@@ -264,8 +264,5 @@ lenses.tagName.set('tag')(defaultOptions)
 
 # Roadmap
 
-- add configuration options
-  - output `fp-ts` encoding
-  - ???
 - derive type class instances? (`Functor`, `Foldable`, etc...)
 - ???
