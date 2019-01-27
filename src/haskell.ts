@@ -4,7 +4,6 @@ import * as C from 'parser-ts/lib/char'
 import * as M from './model'
 import { Either } from 'fp-ts/lib/Either'
 import { some } from 'fp-ts/lib/Option'
-import { tuple } from 'fp-ts/lib/function'
 
 const isDigit = (c: string): boolean => '0123456789'.indexOf(c) !== -1
 
@@ -30,60 +29,62 @@ const withParens = <A>(parser: P.Parser<A>): P.Parser<A> => {
   return leftParens.applySecond(parser).applyFirst(rightParens)
 }
 
-const typeReferenceLeaf: P.Parser<M.Type> = identifier.map(name => M.typeReference(name))
+const unparametrizedRef: P.Parser<M.Type> = identifier.map(name => M.ref(name))
 
-export const typeReference: P.Parser<M.Type> = identifier.chain(name =>
-  S.spaces.applySecond(types.map(parameters => M.typeReference(name, parameters)))
+export const ref: P.Parser<M.Type> = identifier.chain(name =>
+  S.spaces.applySecond(types.map(parameters => M.ref(name, parameters)))
 )
 
 const comma = P.fold([S.spaces, C.char(','), S.spaces])
 
-const other: P.Parser<Array<M.Type>> = comma.chain(() => P.sepBy(comma, type)).alt(P.parser.of([]))
-
-export const tupleType: P.Parser<M.Type> = expected(
+export const tuple: P.Parser<M.Type> = expected(
   'a tuple',
   leftParens
     .chain(() =>
-      type.applyFirst(comma).chain(fst => type.chain(snd => other.map(other => M.tupleType(fst, snd, other))))
+      P.sepBy(comma, type).map(types => {
+        switch (types.length) {
+          case 0:
+            return M.unit
+          case 1:
+            return types[0]
+          default:
+            return M.tuple(types)
+        }
+      })
     )
     .applyFirst(rightParens)
 )
 
 const arrow = P.fold([S.spaces, S.string('->'), S.spaces])
 
-export const functionType: P.Parser<M.Type> = expected(
+export const fun: P.Parser<M.Type> = expected(
   'a function type',
-  S.spaces.chain(() =>
-    withParens(functionType)
-      .alt(typeReference)
-      .alt(tupleType)
-      .chain(domain => arrow.applySecond(type).map(codomain => M.functionType(domain, codomain)))
-  )
+  S.spaces.chain(() => ref.alt(tuple).chain(domain => arrow.applySecond(type).map(codomain => M.fun(domain, codomain))))
 )
 
-export const type: P.Parser<M.Type> = functionType.alt(typeReference).alt(tupleType)
+export const type: P.Parser<M.Type> = fun.alt(ref).alt(tuple)
 
 export const types: P.Parser<Array<M.Type>> = P.sepBy(
   S.spaces,
-  functionType
-    .alt(typeReferenceLeaf)
-    .alt(withParens(typeReference))
-    .alt(tupleType)
+  fun
+    .alt(unparametrizedRef)
+    .alt(withParens(ref))
+    .alt(tuple)
 )
 
-const pair: P.Parser<[string, M.Type]> = identifier.chain(name =>
+const pair: P.Parser<{ name: string; type: M.Type }> = identifier.chain(name =>
   P.fold([S.spaces, S.string('::'), S.spaces])
     .applySecond(type)
-    .map(type => tuple(name, type))
+    .map(type => ({ name, type }))
 )
 
-const objectType: P.Parser<Array<[string, M.Type]>> = P.fold([C.char('{'), S.spaces])
+const pairs: P.Parser<Array<{ name: string; type: M.Type }>> = P.fold([C.char('{'), S.spaces])
   .applySecond(P.sepBy(comma, pair))
   .applyFirst(P.fold([S.spaces, C.char('}')]))
 
 const recordConstructor: P.Parser<M.Constructor> = identifier.chain(name =>
   S.spaces.applySecond(
-    objectType.map(pairs => M.constructor(name, pairs.map(([name, type]) => M.member(type, some(name)))))
+    pairs.map(pairs => M.constructor(name, pairs.map(({ name, type }) => M.member(type, some(name)))))
   )
 )
 
@@ -95,38 +96,38 @@ export const constructor: P.Parser<M.Constructor> = recordConstructor.alt(positi
 
 const equal = P.fold([S.spaces, C.char('='), S.spaces])
 
-const parameterWithoutConstraint: P.Parser<M.Parameter> = identifier.map(name => M.parameter(name))
-
-const parameterWithConstraint: P.Parser<M.Parameter> = P.fold([C.char('('), S.spaces]).applySecond(
-  pair.map(([name, type]) => M.parameter(name, some(type))).applyFirst(P.fold([S.spaces, C.char(')')]))
+const unconstrainedParameterDeclaration: P.Parser<M.ParameterDeclaration> = identifier.map(name =>
+  M.parameterDeclaration(name)
 )
 
-export const parameter = expected('a parameter', parameterWithoutConstraint.alt(parameterWithConstraint))
+const constrainedParameterDeclaration: P.Parser<M.ParameterDeclaration> = P.fold([C.char('('), S.spaces]).applySecond(
+  pair.map(({ name, type }) => M.parameterDeclaration(name, some(type))).applyFirst(P.fold([S.spaces, C.char(')')]))
+)
 
-export const introduction: P.Parser<M.Introduction> = expected(
-  'a data type declaration',
-  S.string('data').chain(() =>
-    S.spaces.applySecond(
-      identifier.chain(name =>
-        S.spaces
-          .applySecond(P.sepBy(S.spaces, parameter))
-          .map(parameters => M.introduction(name, parameters))
-          .applyFirst(equal)
-      )
-    )
-  )
+export const parameterDeclaration = expected(
+  'a parameter',
+  unconstrainedParameterDeclaration.alt(constrainedParameterDeclaration)
 )
 
 const pipe = P.fold([S.spaces, C.char('|'), S.spaces])
 
 export const data: P.Parser<M.Data> = expected(
   'a data declaration',
-  introduction
-    .chain(definition =>
-      P.sepBy1(pipe, constructor).map(constructors => M.data(definition, constructors.head, constructors.tail))
+  S.string('data').chain(() =>
+    S.spaces.applySecond(
+      identifier.chain(name =>
+        S.spaces
+          .applySecond(P.sepBy(S.spaces, parameterDeclaration))
+          .applyFirst(equal)
+          .chain(typeParameters =>
+            P.sepBy1(pipe, constructor)
+              .map(constructors => M.data(name, typeParameters, constructors.head, constructors.tail))
+              .applyFirst(S.spaces)
+              .applyFirst(P.eof)
+          )
+      )
     )
-    .applyFirst(S.spaces)
-    .applyFirst(P.eof)
+  )
 )
 
 export const parse = (s: string): Either<string, M.Data> => {

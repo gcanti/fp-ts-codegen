@@ -3,26 +3,28 @@ import { Option, none } from 'fp-ts/lib/Option'
 
 export type Identifier = string
 
-interface TypeReference {
-  readonly kind: 'TypeReference'
+interface Ref {
+  readonly kind: 'Ref'
   readonly name: Identifier
   readonly parameters: Array<Type>
 }
 
-interface TupleType {
-  readonly kind: 'TupleType'
-  readonly fst: Type
-  readonly snd: Type
-  readonly other: Array<Type>
+interface Tuple {
+  readonly kind: 'Tuple'
+  readonly types: Array<Type>
 }
 
-interface FunctionType {
-  readonly kind: 'FunctionType'
+interface Fun {
+  readonly kind: 'Fun'
   readonly domain: Type
   readonly codomain: Type
 }
 
-export type Type = TypeReference | TupleType | FunctionType
+interface Unit {
+  readonly kind: 'Unit'
+}
+
+export type Type = Ref | Tuple | Fun | Unit
 
 export interface Member {
   readonly type: Type
@@ -34,36 +36,32 @@ export interface Constructor {
   readonly members: Array<Member>
 }
 
-export interface Parameter {
+export interface ParameterDeclaration {
   readonly name: Identifier
   readonly constraint: Option<Type>
 }
 
-export interface Introduction {
-  readonly name: Identifier
-  readonly parameters: Array<Parameter>
-}
-
 export interface Data {
-  readonly introduction: Introduction
+  readonly name: Identifier
+  readonly parameterDeclarations: Array<ParameterDeclaration>
   readonly constructors: NonEmptyArray<Constructor>
 }
 
-export const typeReference = (name: Identifier, parameters: Array<Type> = []): Type => ({
-  kind: 'TypeReference',
+export const ref = (name: Identifier, parameters: Array<Type> = []): Type => ({
+  kind: 'Ref',
   name,
   parameters
 })
 
-export const tupleType = (fst: Type, snd: Type, other: Array<Type> = []): Type => ({
-  kind: 'TupleType',
-  fst,
-  snd,
-  other
+export const tuple = (types: Array<Type>): Type => ({
+  kind: 'Tuple',
+  types
 })
 
-export const functionType = (domain: Type, codomain: Type): Type => ({
-  kind: 'FunctionType',
+export const unit: Type = { kind: 'Unit' }
+
+export const fun = (domain: Type, codomain: Type): Type => ({
+  kind: 'Fun',
   domain,
   codomain
 })
@@ -78,17 +76,18 @@ export const constructor = (name: Identifier, members: Array<Member> = []): Cons
   members
 })
 
-export const parameter = (name: Identifier, constraint: Option<Type> = none): Parameter => ({
+export const parameterDeclaration = (name: Identifier, constraint: Option<Type> = none): ParameterDeclaration => ({
   name,
   constraint
 })
 
-export const introduction = (name: Identifier, parameters: Array<Parameter> = []): Introduction => ({
+export const data = (
+  name: Identifier,
+  parameterDeclarations: Array<ParameterDeclaration>,
+  head: Constructor,
+  tail: Array<Constructor> = []
+): Data => ({
   name,
-  parameters
-})
-
-export const data = (introduction: Introduction, head: Constructor, tail: Array<Constructor> = []): Data => ({
-  introduction,
+  parameterDeclarations,
   constructors: new NonEmptyArray(head, tail)
 })

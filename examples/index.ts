@@ -7,4 +7,5 @@ import './User'
 import './Constrained'
 import './Tuple2'
 import './State'
+import './Writer'
 

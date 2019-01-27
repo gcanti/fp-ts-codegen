@@ -1,5 +1,4 @@
 import * as assert from 'assert'
-import { defaultOptions, lenses } from '../../src/ast'
 import * as M from '../../src/model'
 import * as P from '../../src/printer'
 import * as E from '../examples'
@@ -119,9 +118,8 @@ describe('[printer] literal encoding', () => {
 
   describe('print', () => {
     it('positional members', () => {
-      const printer = P.print
       assert.strictEqual(
-        printer(E.Option),
+        P.print(E.Option),
         `export type Option<A> = {
     readonly type: "None";
 } | {
@@ -146,9 +144,8 @@ export function foldL<A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) 
     })
 
     it('named members', () => {
-      const printer = P.print
       assert.strictEqual(
-        printer(E.Maybe),
+        P.print(E.Maybe),
         `export type Maybe<A> = {
     readonly type: "Nothing";
 } | {
@@ -173,9 +170,8 @@ export function foldL<A, R>(fa: Maybe<A>, onNothing: () => R, onJust: (value: A)
     })
 
     it('constrained parameter', () => {
-      const printer = P.print
       assert.strictEqual(
-        printer(E.Constrained),
+        P.print(E.Constrained),
         `export type Constrained<A extends string> = {
     readonly type: "Fetching";
 } | {
@@ -200,9 +196,8 @@ export function foldL<A extends string, R>(fa: Constrained<A>, onFetching: () =>
     })
 
     it('tuples', () => {
-      const printer = P.print
       assert.strictEqual(
-        printer(E.Tuple2),
+        P.print(E.Tuple2),
         `export type Tuple2<A, B> = {
     readonly type: "Tuple2";
     readonly value0: [A, B];
@@ -214,9 +209,8 @@ export function tuple2<A, B>(value0: [A, B]): Tuple2<A, B> { return { type: "Tup
 
     describe('functions', () => {
       it('type reference domain', () => {
-        const printer = P.print
         assert.strictEqual(
-          printer(E.State),
+          P.print(E.State),
           `export type State<S, A> = {
     readonly type: "State";
     readonly value0: (s: S) => [A, S];
@@ -227,14 +221,12 @@ export function state<S, A>(value0: (s: S) => [A, S]): State<S, A> { return { ty
       })
 
       it('tuple domain', () => {
-        const printer = P.print
         assert.strictEqual(
-          printer(
+          P.print(
             M.data(
-              M.introduction('Tuple'),
-              M.constructor('Tuple', [
-                M.member(M.functionType(M.tupleType(M.typeReference('A'), M.typeReference('B')), M.typeReference('C')))
-              ])
+              'Tuple',
+              [],
+              M.constructor('Tuple', [M.member(M.fun(M.tuple([M.ref('A'), M.ref('B')]), M.ref('C')))])
             )
           ),
           `export type Tuple = {
@@ -247,16 +239,12 @@ export function tuple(value0: (tuple: [A, B]) => C): Tuple { return { type: "Tup
       })
 
       it('function domain', () => {
-        const printer = P.print
         assert.strictEqual(
-          printer(
+          P.print(
             M.data(
-              M.introduction('Function'),
-              M.constructor('Function', [
-                M.member(
-                  M.functionType(M.functionType(M.typeReference('A'), M.typeReference('B')), M.typeReference('C'))
-                )
-              ])
+              'Function',
+              [],
+              M.constructor('Function', [M.member(M.fun(M.fun(M.ref('A'), M.ref('B')), M.ref('C')))])
             )
           ),
           `export type Function = {
@@ -270,9 +258,8 @@ export function function(value0: (f: (a: A) => B) => C): Function { return { typ
     })
 
     it('records', () => {
-      const printer = P.print
       assert.strictEqual(
-        printer(E.User),
+        P.print(E.User),
         `export type User = {
     readonly type: "User";
     readonly name: string;
@@ -283,93 +270,26 @@ export function user(name: string, surname: string): User { return { type: "User
       )
     })
 
-    describe('options', () => {
-      it('should handle custom tag names', () => {
-        const printer = P.print
-        assert.strictEqual(
-          printer(E.Option, lenses.tagName.set('tag')(defaultOptions)),
-          `export type Option<A> = {
-    readonly tag: "None";
-} | {
-    readonly tag: "Some";
-    readonly value0: A;
+    it('unit', () => {
+      assert.strictEqual(
+        P.print(E.Writer),
+        `export type Writer<W, A> = {
+    readonly type: "Writer";
+    readonly value0: () => [A, W];
 };
 
-export const none: Option<never> = { tag: "None" };
+export function writer<W, A>(value0: () => [A, W]): Writer<W, A> { return { type: "Writer", value0 }; }`
+      )
 
-export function some<A>(value0: A): Option<A> { return { tag: "Some", value0 }; }
+      assert.strictEqual(
+        P.print(M.data('Unit', [], M.constructor('Unit', [M.member(M.unit)]))),
+        `export type Unit = {
+    readonly type: "Unit";
+    readonly value0: undefined;
+};
 
-export function fold<A, R>(fa: Option<A>, onNone: R, onSome: (value0: A) => R): R { switch (fa.tag) {
-    case "None": return onNone;
-    case "Some": return onSome(fa.value0);
-} }
-
-export function foldL<A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) => R): R { switch (fa.tag) {
-    case "None": return onNone();
-    case "Some": return onSome(fa.value0);
-} }`
-        )
-      })
-
-      it('should handle custom fold names', () => {
-        assertPrinterEqual(
-          P.fold,
-          E.Option,
-          [
-            `export function match<A, R>(fa: Option<A>, onNone: R, onSome: (value0: A) => R): R { switch (fa.type) {
-    case "None": return onNone;
-    case "Some": return onSome(fa.value0);
-} }`,
-            `export function matchL<A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) => R): R { switch (fa.type) {
-    case "None": return onNone();
-    case "Some": return onSome(fa.value0);
-} }`
-          ],
-          lenses.foldName.set('match')(defaultOptions)
-        )
-      })
-
-      it('should handle custom matchee name', () => {
-        assertPrinterEqual(
-          P.fold,
-          E.Option,
-          [
-            `export function fold<A, R>(input: Option<A>, onNone: R, onSome: (value0: A) => R): R { switch (input.type) {
-    case "None": return onNone;
-    case "Some": return onSome(input.value0);
-} }`,
-            `export function foldL<A, R>(input: Option<A>, onNone: () => R, onSome: (value0: A) => R): R { switch (input.type) {
-    case "None": return onNone();
-    case "Some": return onSome(input.value0);
-} }`
-          ],
-          lenses.matcheeName.set('input')(defaultOptions)
-        )
-      })
-
-      it('should handle handlersName + handlersStyle', () => {
-        assertPrinterEqual(
-          P.fold,
-          E.Option,
-          [
-            `export function fold<A, R>(fa: Option<A>, clauses: {
-    onNone: R;
-    onSome: (value0: A) => R;
-}): R { switch (fa.type) {
-    case "None": return clauses.onNone;
-    case "Some": return clauses.onSome(fa.value0);
-} }`,
-            `export function foldL<A, R>(fa: Option<A>, clauses: {
-    onNone: () => R;
-    onSome: (value0: A) => R;
-}): R { switch (fa.type) {
-    case "None": return clauses.onNone();
-    case "Some": return clauses.onSome(fa.value0);
-} }`
-          ],
-          lenses.handlersStyle.set({ type: 'record', handlersName: 'clauses' })(defaultOptions)
-        )
-      })
+export function unit(value0: undefined): Unit { return { type: "Unit", value0 }; }`
+      )
     })
   })
 })

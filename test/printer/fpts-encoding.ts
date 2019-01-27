@@ -91,13 +91,14 @@ export function right<L, R>(value0: R): Either<L, R> { return new Right(value0);
     assertPrinterEqual(
       P.data,
       M.data(
-        M.introduction('TooMany', [
-          M.parameter('Z'),
-          M.parameter('X'),
-          M.parameter('U'),
-          M.parameter('L'),
-          M.parameter('A')
-        ]),
+        'TooMany',
+        [
+          M.parameterDeclaration('Z'),
+          M.parameterDeclaration('X'),
+          M.parameterDeclaration('U'),
+          M.parameterDeclaration('L'),
+          M.parameterDeclaration('A')
+        ],
         M.constructor('TooMany')
       ),
       `export type TooMany<Z, X, U, L, A> = {
@@ -144,6 +145,33 @@ export class GotData<A> {
 export const fetching: Constrained<string> = Fetching.value;
 
 export function gotData<A extends string>(value0: A): Constrained<A> { return new GotData(value0); }`
+    )
+  })
+
+  it('Writer', () => {
+    assert.strictEqual(
+      P.print(E.Writer, fptsEncodingOptions),
+      `declare module "fp-ts/lib/HKT" {
+    interface URI2HKT2<L, A> {
+        Writer: Writer<L, A>;
+    }
+}
+
+export const URI = "Writer";
+
+export type URI = typeof URI;
+
+export type Writer<W, A> = Writer<W, A>;
+
+export class Writer<W, A> {
+    readonly _tag: "Writer" = "Writer";
+    readonly _A!: A;
+    readonly _L!: L;
+    readonly _URI!: URI;
+    constructor(readonly value0: () => [A, W]) { }
+}
+
+export function writer<W, A>(value0: () => [A, W]): Writer<W, A> { return new Writer(value0); }`
     )
   })
 })
