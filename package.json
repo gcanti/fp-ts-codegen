@@ -12,12 +12,14 @@
     "jest": "jest",
     "prettier": "prettier --no-semi --single-quote --print-width 120 --parser typescript --list-different \"{src,test}/**/*.ts\"",
     "fix-prettier": "prettier --no-semi --single-quote --print-width 120 --parser typescript --write \"{src,test}/**/*.ts\"",
-    "test": "npm run prettier && npm run jest && npm run examples",
+    "test": "npm run prettier && npm run jest && npm run examples && npm run playground",
     "clean": "rimraf rm -rf lib/*",
     "build": "npm run clean && tsc",
     "dtslint": "dtslint dtslint",
     "mocha": "mocha -r ts-node/register \"./test/**/*.ts\" --recursive",
-    "examples": "rimraf examples/*.ts && ts-node generate-examples.ts && ts-node examples/index.ts"
+    "examples": "rimraf examples/*.ts && ts-node generate-examples.ts && ts-node examples/index.ts",
+    "playground": "webpack --config playground/webpack.config.js",
+    "watch-playground": "webpack --config playground/webpack.config.js --watch"
   },
   "repository": {
     "type": "git",
@@ -38,15 +40,25 @@
   "devDependencies": {
     "@types/jest": "^23.3.13",
     "@types/node": "^10.12.18",
+    "@types/prismjs": "^1.9.0",
+    "@types/react": "^16.7.21",
+    "@types/react-dom": "^16.0.11",
     "dtslint": "^0.4.2",
     "jest": "^23.6.0",
     "mocha": "^5.2.0",
     "prettier": "^1.16.1",
+    "prismjs": "^1.15.0",
+    "react": "^16.7.0",
+    "react-dom": "^16.7.0",
+    "react-simple-code-editor": "^0.8.0",
     "rimraf": "^2.6.3",
     "ts-jest": "^23.10.5",
+    "ts-loader": "^5.3.3",
     "ts-node": "3.3.0",
     "tslint": "^5.12.1",
-    "tslint-config-standard": "^8.0.1"
+    "tslint-config-standard": "^8.0.1",
+    "webpack": "^4.29.0",
+    "webpack-cli": "^3.2.1"
   },
   "tags": [
     "fp-ts",

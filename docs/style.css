@@ -1,0 +1,28 @@
+body {
+  font-family: 'Fira code', monospace;
+}
+
+table td {
+  vertical-align: top;
+  padding: 20px;
+}
+
+table td.source {
+  width: 40%;
+}
+
+table td.code {
+  width: 60%;
+}
+
+textarea {
+  font-family: 'Fira code', monospace;
+  width: 100%;
+  border: none;
+  font-size: 16px;
+  padding: 10px;
+}
+
+select {
+  font-size: 16px;
+}
