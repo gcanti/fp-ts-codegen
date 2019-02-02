@@ -1,5 +1,9 @@
 TypeScript code generation from a haskell-like syntax for ADT (algebraic data types)
 
+# Playground
+
+[A playground with a few examples](https://gcanti.github.io/fp-ts-codegen/)
+
 # Installation
 
 To install the stable version:
