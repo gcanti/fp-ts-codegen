@@ -28,7 +28,13 @@ export function fold<A, R>(fa: Option<A>, onNone: R, onSome: (value0: A) => R): 
 export function foldL<A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) => R): R { switch (fa.tag) {
     case "None": return onNone();
     case "Some": return onSome(fa.value0);
-} }`
+} }
+
+import { Prism } from "monocle-ts";
+
+export function _none<A>(): Prism<Option<A>, Option<A>> { return Prism.fromPredicate(s => s.tag === "None"); }
+
+export function _some<A>(): Prism<Option<A>, Option<A>> { return Prism.fromPredicate(s => s.tag === "Some"); }`
     )
   })
 

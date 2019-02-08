@@ -44,7 +44,13 @@ export class Some<A> {
 
 export const none: Option<never> = None.value;
 
-export function some<A>(value0: A): Option<A> { return new Some(value0); }`
+export function some<A>(value0: A): Option<A> { return new Some(value0); }
+
+import { Prism } from "monocle-ts";
+
+export function _none<A>(): Prism<Option<A>, Option<A>> { return Prism.fromPredicate(s => s.type === "None"); }
+
+export function _some<A>(): Prism<Option<A>, Option<A>> { return Prism.fromPredicate(s => s.type === "Some"); }`
     )
   })
 
@@ -83,7 +89,13 @@ export class Right<L, R> {
 
 export function left<L, R>(value0: L): Either<L, R> { return new Left(value0); }
 
-export function right<L, R>(value0: R): Either<L, R> { return new Right(value0); }`
+export function right<L, R>(value0: R): Either<L, R> { return new Right(value0); }
+
+import { Prism } from "monocle-ts";
+
+export function _left<L, R>(): Prism<Either<L, R>, Either<L, R>> { return Prism.fromPredicate(s => s.type === "Left"); }
+
+export function _right<L, R>(): Prism<Either<L, R>, Either<L, R>> { return Prism.fromPredicate(s => s.type === "Right"); }`
     )
   })
 
@@ -144,7 +156,13 @@ export class GotData<A> {
 
 export const fetching: Constrained<string> = Fetching.value;
 
-export function gotData<A extends string>(value0: A): Constrained<A> { return new GotData(value0); }`
+export function gotData<A extends string>(value0: A): Constrained<A> { return new GotData(value0); }
+
+import { Prism } from "monocle-ts";
+
+export function _fetching<A extends string>(): Prism<Constrained<A>, Constrained<A>> { return Prism.fromPredicate(s => s.type === "Fetching"); }
+
+export function _gotData<A extends string>(): Prism<Constrained<A>, Constrained<A>> { return Prism.fromPredicate(s => s.type === "GotData"); }`
     )
   })
 

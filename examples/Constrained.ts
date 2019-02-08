@@ -19,3 +19,9 @@ export function foldL<A extends string, R>(fa: Constrained<A>, onFetching: () =>
     case "GotData": return onGotData(fa.value0);
 } }
 
+import { Prism } from "monocle-ts";
+
+export function _fetching<A extends string>(): Prism<Constrained<A>, Constrained<A>> { return Prism.fromPredicate(s => s.type === "Fetching"); }
+
+export function _gotData<A extends string>(): Prism<Constrained<A>, Constrained<A>> { return Prism.fromPredicate(s => s.type === "GotData"); }
+

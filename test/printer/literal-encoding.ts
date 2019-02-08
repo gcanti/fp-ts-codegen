@@ -116,6 +116,16 @@ describe('[printer] literal encoding', () => {
     })
   })
 
+  describe('prisms', () => {
+    it('should handle monomorphic data', () => {
+      assertPrinterEqual(P.prisms, E.FooBar, [
+        'import { Prism } from "monocle-ts";',
+        'export const _Foo: Prism<FooBar, FooBar> = Prism.fromPredicate(s => s.type === "Foo");',
+        'export const _Bar: Prism<FooBar, FooBar> = Prism.fromPredicate(s => s.type === "Bar");'
+      ])
+    })
+  })
+
   describe('print', () => {
     it('positional members', () => {
       assert.strictEqual(
@@ -139,7 +149,13 @@ export function fold<A, R>(fa: Option<A>, onNone: R, onSome: (value0: A) => R): 
 export function foldL<A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) => R): R { switch (fa.type) {
     case "None": return onNone();
     case "Some": return onSome(fa.value0);
-} }`
+} }
+
+import { Prism } from "monocle-ts";
+
+export function _none<A>(): Prism<Option<A>, Option<A>> { return Prism.fromPredicate(s => s.type === "None"); }
+
+export function _some<A>(): Prism<Option<A>, Option<A>> { return Prism.fromPredicate(s => s.type === "Some"); }`
       )
     })
 
@@ -165,7 +181,13 @@ export function fold<A, R>(fa: Maybe<A>, onNothing: R, onJust: (value: A) => R):
 export function foldL<A, R>(fa: Maybe<A>, onNothing: () => R, onJust: (value: A) => R): R { switch (fa.type) {
     case "Nothing": return onNothing();
     case "Just": return onJust(fa.value);
-} }`
+} }
+
+import { Prism } from "monocle-ts";
+
+export function _nothing<A>(): Prism<Maybe<A>, Maybe<A>> { return Prism.fromPredicate(s => s.type === "Nothing"); }
+
+export function _just<A>(): Prism<Maybe<A>, Maybe<A>> { return Prism.fromPredicate(s => s.type === "Just"); }`
       )
     })
 
@@ -191,7 +213,13 @@ export function fold<A extends string, R>(fa: Constrained<A>, onFetching: R, onG
 export function foldL<A extends string, R>(fa: Constrained<A>, onFetching: () => R, onGotData: (value0: A) => R): R { switch (fa.type) {
     case "Fetching": return onFetching();
     case "GotData": return onGotData(fa.value0);
-} }`
+} }
+
+import { Prism } from "monocle-ts";
+
+export function _fetching<A extends string>(): Prism<Constrained<A>, Constrained<A>> { return Prism.fromPredicate(s => s.type === "Fetching"); }
+
+export function _gotData<A extends string>(): Prism<Constrained<A>, Constrained<A>> { return Prism.fromPredicate(s => s.type === "GotData"); }`
       )
     })
 

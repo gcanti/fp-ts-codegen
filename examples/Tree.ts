@@ -21,3 +21,9 @@ export function foldL<A, R>(fa: Tree<A>, onLeaf: () => R, onNode: (value0: Tree<
     case "Node": return onNode(fa.value0, fa.value1, fa.value2);
 } }
 
+import { Prism } from "monocle-ts";
+
+export function _leaf<A>(): Prism<Tree<A>, Tree<A>> { return Prism.fromPredicate(s => s.type === "Leaf"); }
+
+export function _node<A>(): Prism<Tree<A>, Tree<A>> { return Prism.fromPredicate(s => s.type === "Node"); }
+

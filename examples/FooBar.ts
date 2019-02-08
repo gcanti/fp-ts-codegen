@@ -18,3 +18,9 @@ export function foldL<R>(fa: FooBar, onFoo: () => R, onBar: () => R): R { switch
     case "Bar": return onBar();
 } }
 
+import { Prism } from "monocle-ts";
+
+export const _Foo: Prism<FooBar, FooBar> = Prism.fromPredicate(s => s.type === "Foo");
+
+export const _Bar: Prism<FooBar, FooBar> = Prism.fromPredicate(s => s.type === "Bar");
+

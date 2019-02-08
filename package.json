@@ -1,6 +1,6 @@
 {
   "name": "fp-ts-codegen",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "TypeScript code generation from a haskell-like syntax for ADT",
   "files": [
     "lib"
