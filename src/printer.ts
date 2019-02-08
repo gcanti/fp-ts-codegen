@@ -25,9 +25,15 @@ export const fold = (d: M.Data): Printer<Array<string>> => {
   return A.fold(d).map(functionDeclarations => functionDeclarations.map(ast))
 }
 
+export const prisms = (d: M.Data): Printer<Array<string>> => {
+  return A.prisms(d).map(nodes => nodes.map(ast))
+}
+
 export const all = (d: M.Data): Printer<Array<string>> => {
   return data(d).chain(data =>
-    constructors(d).chain(constructors => fold(d).map(folds => [data, ...constructors, ...folds]))
+    constructors(d).chain(constructors =>
+      fold(d).chain(folds => prisms(d).map(prisms => [data, ...constructors, ...folds, ...prisms]))
+    )
   )
 }
 

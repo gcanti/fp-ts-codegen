@@ -19,3 +19,9 @@ export function foldL<A, R>(fa: Maybe<A>, onNothing: () => R, onJust: (value: A)
     case "Just": return onJust(fa.value);
 } }
 
+import { Prism } from "monocle-ts";
+
+export function _nothing<A>(): Prism<Maybe<A>, Maybe<A>> { return Prism.fromPredicate(s => s.type === "Nothing"); }
+
+export function _just<A>(): Prism<Maybe<A>, Maybe<A>> { return Prism.fromPredicate(s => s.type === "Just"); }
+

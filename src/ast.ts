@@ -352,7 +352,7 @@ const getFunctionDeclaration = (
 
 const getParameterDeclaration = (
   name: string,
-  type: ts.TypeNode,
+  type?: ts.TypeNode,
   isReadonly: boolean = false
 ): ts.ParameterDeclaration => {
   return ts.createParameter(
@@ -639,5 +639,69 @@ export const fold = (d: M.Data): AST<Array<ts.FunctionDeclaration>> => {
       }
     }
     return array.sequence(reader)(folds)
+  })
+}
+
+const isPolymorphic = (d: M.Data): boolean => {
+  return d.parameterDeclarations.length > 0
+}
+
+export const prisms = (d: M.Data): AST<Array<ts.Node>> => {
+  return ask<Options>().chain(e => {
+    if (!isSumType(d)) {
+      return reader.of(empty)
+    }
+    const dataType = ts.createTypeReferenceNode(
+      d.name,
+      d.parameterDeclarations.map(p => ts.createTypeReferenceNode(p.name, []))
+    )
+    const type = ts.createTypeReferenceNode('Prism', [dataType, dataType])
+    const getPrism = (name: string) => {
+      return ts.createCall(
+        ts.createPropertyAccess(ts.createIdentifier('Prism'), 'fromPredicate'),
+        [],
+        [
+          ts.createArrowFunction(
+            [],
+            [],
+            [getParameterDeclaration('s')],
+            undefined,
+            undefined,
+            ts.createBinary(
+              ts.createPropertyAccess(ts.createIdentifier('s'), e.tagName),
+              ts.SyntaxKind.EqualsEqualsEqualsToken,
+              ts.createStringLiteral(name)
+            )
+          )
+        ]
+      )
+    }
+    const monocleImport = ts.createImportDeclaration(
+      [],
+      [],
+      ts.createImportClause(
+        undefined,
+        ts.createNamedImports([ts.createImportSpecifier(undefined, ts.createIdentifier('Prism'))])
+      ),
+      ts.createStringLiteral('monocle-ts')
+    )
+    const typeParameters: Array<ts.TypeParameterDeclaration> = d.parameterDeclarations.map(p =>
+      ts.createTypeParameterDeclaration(p.name, p.constraint.map(getTypeNode).toUndefined())
+    )
+    if (isPolymorphic(d)) {
+      return reader.of([
+        monocleImport,
+        ...d.constructors.toArray().map<ts.Node>(c => {
+          const body = ts.createBlock([ts.createReturn(getPrism(c.name))])
+          return getFunctionDeclaration(`_${getFirstLetterLowerCase(c.name)}`, typeParameters, [], type, body)
+        })
+      ])
+    }
+    return reader.of([
+      monocleImport,
+      ...d.constructors.toArray().map(c => {
+        return getConstantDeclaration(`_${c.name}`, getPrism(c.name), type)
+      })
+    ])
   })
 }

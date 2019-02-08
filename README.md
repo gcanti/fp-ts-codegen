@@ -71,6 +71,18 @@ export function foldL<A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) 
       return onSome(fa.value0)
   }
 }
+
+/** prisms */
+
+import { Prism } from 'monocle-ts'
+
+export function _none<A>(): Prism<Option<A>, Option<A>> {
+  return Prism.fromPredicate(s => s.type === 'None')
+}
+
+export function _some<A>(): Prism<Option<A>, Option<A>> {
+  return Prism.fromPredicate(s => s.type === 'Some')
+}
 ```
 
 # Records
@@ -208,6 +220,16 @@ export const none: Option<never> = None.value
 
 export function some<A>(value0: A): Option<A> {
   return new Some(value0)
+}
+
+import { Prism } from 'monocle-ts'
+
+export function _none<A>(): Prism<Option<A>, Option<A>> {
+  return Prism.fromPredicate(s => s.type === 'None')
+}
+
+export function _some<A>(): Prism<Option<A>, Option<A>> {
+  return Prism.fromPredicate(s => s.type === 'Some')
 }
 ```
 

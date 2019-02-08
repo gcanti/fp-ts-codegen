@@ -15,3 +15,9 @@ export function fold<L, R, R1>(fa: Either<L, R>, onLeft: (value0: L) => R1, onRi
     case "Right": return onRight(fa.value0);
 } }
 
+import { Prism } from "monocle-ts";
+
+export function _left<L, R>(): Prism<Either<L, R>, Either<L, R>> { return Prism.fromPredicate(s => s.type === "Left"); }
+
+export function _right<L, R>(): Prism<Either<L, R>, Either<L, R>> { return Prism.fromPredicate(s => s.type === "Right"); }
+
