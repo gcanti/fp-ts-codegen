@@ -24,7 +24,7 @@ const assertFailure = <A>(parser: Parser<A>, input: string, expected: string) =>
   }
 }
 
-describe('[parser] Haskell', () => {
+describe('Haskell parser', () => {
   it('identifier', () => {
     const parser = P.identifier
     assertSuccess(parser, 'a', 'a')
@@ -108,7 +108,7 @@ describe('[parser] Haskell', () => {
     assertSuccess(parser, 'T (A) B', M.constructor('T', [M.member(M.ref('A')), M.member(M.ref('B'))]))
     assertSuccess(parser, 'T (A B)', M.constructor('T', [M.member(M.ref('A', [M.ref('B')]))]))
     assertSuccess(parser, 'Node (Tree A) A (Tree A)', E.Tree.constructors.tail[0])
-    assertSuccess(parser, 'User { name :: string, surname :: string }', E.User.constructors.head)
+    assertSuccess(parser, 'User { name :: string, surname :: string, age :: number }', E.User.constructors.head)
     // tuples
     assertSuccess(parser, 'Tuple2 (A, B)', E.Tuple2.constructors.head)
     // functions
@@ -121,7 +121,7 @@ describe('[parser] Haskell', () => {
     assertSuccess(parser, 'data Option A = None | Some A', E.Option)
     assertSuccess(parser, 'data Either L R = Left L | Right R', E.Either)
     assertSuccess(parser, 'data Tree A = Leaf | Node (Tree A) A (Tree A)', E.Tree)
-    assertSuccess(parser, 'data User = User { name :: string, surname :: string }', E.User)
+    assertSuccess(parser, 'data User = User { name :: string, surname :: string, age :: number }', E.User)
     // tuples
     assertSuccess(parser, 'data Tuple2 A B = Tuple2 (A, B)', E.Tuple2)
     assertFailure(

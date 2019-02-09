@@ -91,3 +91,25 @@ export const data = (
   parameterDeclarations,
   constructors: new NonEmptyArray(head, tail)
 })
+
+export const isNullary = (c: Constructor): boolean => {
+  return c.members.length === 0
+}
+
+export const isPolymorphic = (d: Data): boolean => {
+  return d.parameterDeclarations.length > 0
+}
+
+export const isSum = (d: Data): boolean => {
+  return d.constructors.length() > 1
+}
+
+export const isEnum = (d: Data): boolean => {
+  return d.constructors.toArray().every(isNullary)
+}
+
+export const isRecursiveMember = (m: Member, d: Data): boolean => m.type.kind === 'Ref' && m.type.name === d.name
+
+export const isRecursive = (d: Data): boolean => {
+  return d.constructors.toArray().some(c => c.members.some(m => isRecursiveMember(m, d)))
+}

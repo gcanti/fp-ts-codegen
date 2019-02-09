@@ -12,24 +12,27 @@ const defaultSource = 'data Option A = None | Some A'
 interface Props {
   source: string
   encoding: Options['encoding']
+  handlersStyle: Options['handlersStyle']
 }
 
 interface State extends Props {
   code: string
 }
 
-const getState = (source: string, encoding: Options['encoding']): State => {
+const getState = (source: string, encoding: Options['encoding'], handlersStyle: Options['handlersStyle']): State => {
+  const options = lenses.handlersStyle.set(handlersStyle)(lenses.encoding.set(encoding)(defaultOptions))
   return {
     source,
     encoding,
-    code: run(source, lenses.encoding.set(encoding)(defaultOptions)).getOrElseL(e => `/** Error: ${e} */`)
+    handlersStyle,
+    code: run(source, options).getOrElseL(e => `/** Error: ${e} */`)
   }
 }
 
 class App extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props)
-    this.state = getState(props.source, props.encoding)
+    this.state = getState(props.source, props.encoding, props.handlersStyle)
   }
 
   render() {
@@ -37,17 +40,24 @@ class App extends React.Component<Props, State> {
       console.log(code)
     }
     const onCodeChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      this.setState(getState(e.currentTarget.value, this.state.encoding))
+      this.setState(getState(e.currentTarget.value, this.state.encoding, this.state.handlersStyle))
     }
     const onEncodingChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.currentTarget.checked) {
-        this.setState(getState(this.state.source, 'fp-ts'))
+        this.setState(getState(this.state.source, 'fp-ts', this.state.handlersStyle))
       } else {
-        this.setState(getState(this.state.source, 'literal'))
+        this.setState(getState(this.state.source, 'literal', this.state.handlersStyle))
+      }
+    }
+    const onHandlersStyleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.currentTarget.checked) {
+        this.setState(getState(this.state.source, this.state.encoding, { type: 'record', handlersName: 'handlers' }))
+      } else {
+        this.setState(getState(this.state.source, this.state.encoding, { type: 'positional' }))
       }
     }
     const onExampleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-      this.setState(getState(e.currentTarget.value, this.state.encoding))
+      this.setState(getState(e.currentTarget.value, this.state.encoding, this.state.handlersStyle))
     }
     return (
       <div>
@@ -58,7 +68,7 @@ class App extends React.Component<Props, State> {
           <thead>
             <tr>
               <th>Source</th>
-              <th>Output</th>
+              <th>Output (unformatted)</th>
             </tr>
           </thead>
           <tbody>
@@ -67,12 +77,16 @@ class App extends React.Component<Props, State> {
                 <textarea rows={10} value={this.state.source} onChange={onCodeChange} />
                 <input type="checkbox" onChange={onEncodingChange} /> fp-ts encoding
                 <br />
+                <input type="checkbox" onChange={onHandlersStyleChange} /> fold handlers style:{' '}
+                {this.state.handlersStyle.type}
+                <br />
                 <br />
                 Examples:
                 <select onChange={onExampleChange}>
                   <option value="data Option A = None | Some A">Option</option>
                   <option value="data Either A B = Left A | Right B">Either</option>
                   <option value="data These A B = Left A | Right B | Both A B">These</option>
+                  <option value="data List A = Nil | Cons A (List A)">List</option>
                   <option value="data Tree A = Leaf | Node (Tree A) A (Tree A)">Tree</option>
                   <option value="data These A B = Left { left :: A } | Right { right :: B } | Both { left :: A, right :: B }">
                     These (record syntax)
@@ -101,4 +115,7 @@ class App extends React.Component<Props, State> {
   }
 }
 
-ReactDOM.render(<App source={defaultSource} encoding="literal" />, document.getElementById('main'))
+ReactDOM.render(
+  <App source={defaultSource} encoding="literal" handlersStyle={{ type: 'positional' }} />,
+  document.getElementById('main')
+)

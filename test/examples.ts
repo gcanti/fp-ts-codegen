@@ -6,7 +6,7 @@ export const Option = M.data('Option', [M.parameterDeclaration('A')], M.construc
   M.constructor('Some', [M.member(M.ref('A'))])
 ])
 
-// data Maybe A = Nothing | Just value:A
+// data Maybe A = Nothing | Just { value :: A }
 export const Maybe = M.data('Maybe', [M.parameterDeclaration('A')], M.constructor('Nothing'), [
   M.constructor('Just', [M.member(M.ref('A'), some('value'))])
 ])
@@ -19,6 +19,17 @@ export const Either = M.data(
   [M.constructor('Right', [M.member(M.ref('R'))])]
 )
 
+// data These A B = Left { left :: A } | Right { right :: B } | Both { left :: A, right :: B }
+export const These = M.data(
+  'These',
+  [M.parameterDeclaration('A'), M.parameterDeclaration('B')],
+  M.constructor('Left', [M.member(M.ref('A'), some('left'))]),
+  [
+    M.constructor('Right', [M.member(M.ref('B'), some('right'))]),
+    M.constructor('Both', [M.member(M.ref('A'), some('left')), M.member(M.ref('B'), some('right'))])
+  ]
+)
+
 // data Tree A = Leaf | Node (Tree A) A (Tree A)
 export const Tree = M.data('Tree', [M.parameterDeclaration('A')], M.constructor('Leaf'), [
   M.constructor('Node', [
@@ -28,14 +39,18 @@ export const Tree = M.data('Tree', [M.parameterDeclaration('A')], M.constructor(
   ])
 ])
 
-// data FooBar = Foo | Bar
-export const FooBar = M.data('FooBar', [], M.constructor('Foo'), [M.constructor('Bar')])
+// data FooBarBaz = Foo | Bar | Baz
+export const FooBarBaz = M.data('FooBarBaz', [], M.constructor('Foo'), [M.constructor('Bar'), M.constructor('Baz')])
 
-// data User = User { name :: string, surname :: string }
+// data User = User { name :: string, surname :: string, age :: number }
 export const User = M.data(
   'User',
   [],
-  M.constructor('User', [M.member(M.ref('string'), some('name')), M.member(M.ref('string'), some('surname'))]),
+  M.constructor('User', [
+    M.member(M.ref('string'), some('name')),
+    M.member(M.ref('string'), some('surname')),
+    M.member(M.ref('number'), some('age'))
+  ]),
   []
 )
 
