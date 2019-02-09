@@ -29,15 +29,21 @@ export const prisms = (d: M.Data): Printer<Array<string>> => {
   return A.prisms(d).map(nodes => nodes.map(ast))
 }
 
+export const setoid = (d: M.Data): Printer<Array<string>> => {
+  return A.setoid(d).map(nodes => nodes.map(ast))
+}
+
 export const all = (d: M.Data): Printer<Array<string>> => {
   return data(d).chain(data =>
     constructors(d).chain(constructors =>
-      fold(d).chain(folds => prisms(d).map(prisms => [data, ...constructors, ...folds, ...prisms]))
+      fold(d).chain(folds =>
+        prisms(d).chain(prisms => setoid(d).map(setoid => [data, ...constructors, ...folds, ...prisms, ...setoid]))
+      )
     )
   )
 }
 
-export const print = (d: M.Data, options: A.Options = A.defaultOptions): string => {
+export const print = (d: M.Data, options: A.Options): string => {
   return all(d)
     .run(options)
     .join('\n\n')

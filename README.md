@@ -83,6 +83,27 @@ export function _none<A>(): Prism<Option<A>, Option<A>> {
 export function _some<A>(): Prism<Option<A>, Option<A>> {
   return Prism.fromPredicate(s => s.type === 'Some')
 }
+
+/** Setoid instance */
+
+import { Setoid } from 'fp-ts/lib/Setoid'
+
+export function getSetoid<A>(setoidSomeValue0: Setoid<A>): Setoid<Option<A>> {
+  return {
+    equals: (x, y) => {
+      if (x === y) {
+        return true
+      }
+      if (x.type === 'None' && y.type === 'None') {
+        return true
+      }
+      if (x.type === 'Some' && y.type === 'Some') {
+        return setoidSomeValue0.equals(x.value0, y.value0)
+      }
+      return false
+    }
+  }
+}
 ```
 
 # Records
@@ -251,6 +272,7 @@ export interface Options {
    */
   handlersStyle: { type: 'positional' } | { type: 'record'; handlersName: string }
   encoding: 'literal' | 'fp-ts'
+  version: '1.13' | '1.14'
 }
 
 export const defaultOptions: Options = {
@@ -258,7 +280,8 @@ export const defaultOptions: Options = {
   foldName: 'fold',
   matcheeName: 'fa',
   handlersStyle: { type: 'positional' },
-  encoding: 'literal'
+  encoding: 'literal',
+  version: '1.13'
 }
 ```
 

@@ -1,6 +1,6 @@
 {
   "name": "fp-ts-codegen",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "TypeScript code generation from a haskell-like syntax for ADT",
   "files": [
     "lib"
@@ -46,7 +46,7 @@
     "dtslint": "^0.4.2",
     "jest": "^23.6.0",
     "mocha": "^5.2.0",
-    "prettier": "^1.16.1",
+    "prettier": "^1.16.4",
     "prismjs": "^1.15.0",
     "react": "^16.7.0",
     "react-dom": "^16.7.0",
