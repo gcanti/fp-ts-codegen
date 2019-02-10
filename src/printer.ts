@@ -1,9 +1,11 @@
 import * as ts from 'typescript'
-import * as A from './ast'
+import * as Ast from './ast'
 import * as M from './model'
-import { Reader } from 'fp-ts/lib/Reader'
+import { Reader, reader } from 'fp-ts/lib/Reader'
+import * as Mon from 'fp-ts/lib/Monoid'
+import { array } from 'fp-ts/lib/Array'
 
-export interface Printer<A> extends Reader<A.Options, A> {}
+export interface Printer<A> extends Reader<Ast.Options, A> {}
 
 export const ast = (ast: ts.Node): string => {
   const printer = ts.createPrinter({
@@ -14,36 +16,39 @@ export const ast = (ast: ts.Node): string => {
 }
 
 export const data = (d: M.Data): Printer<string> => {
-  return A.data(d).map(declarations => declarations.map(ast).join('\n\n'))
+  return Ast.data(d).map(declarations => declarations.map(ast).join('\n\n'))
 }
 
 export const constructors = (d: M.Data): Printer<Array<string>> => {
-  return A.constructors(d).map(nodes => nodes.map(ast))
+  return Ast.constructors(d).map(nodes => nodes.map(ast))
 }
 
-export const fold = (d: M.Data): Printer<Array<string>> => {
-  return A.fold(d).map(functionDeclarations => functionDeclarations.map(ast))
+export const folds = (d: M.Data): Printer<Array<string>> => {
+  return Ast.folds(d).map(functionDeclarations => functionDeclarations.map(ast))
 }
 
 export const prisms = (d: M.Data): Printer<Array<string>> => {
-  return A.prisms(d).map(nodes => nodes.map(ast))
+  return Ast.prisms(d).map(nodes => nodes.map(ast))
 }
 
 export const setoid = (d: M.Data): Printer<Array<string>> => {
-  return A.setoid(d).map(nodes => nodes.map(ast))
+  return Ast.setoid(d).map(nodes => nodes.map(ast))
 }
+
+export const getMonoid = <A>(M: Mon.Monoid<A>): Mon.Monoid<Printer<A>> => {
+  return {
+    concat: (x, y) => new Reader(e => M.concat(x.run(e), y.run(e))),
+    empty: reader.of(M.empty)
+  }
+}
+
+const monoidPrinter: Mon.Monoid<Printer<Array<string>>> = getMonoid(Mon.getArrayMonoid<string>())
 
 export const all = (d: M.Data): Printer<Array<string>> => {
-  return data(d).chain(data =>
-    constructors(d).chain(constructors =>
-      fold(d).chain(folds =>
-        prisms(d).chain(prisms => setoid(d).map(setoid => [data, ...constructors, ...folds, ...prisms, ...setoid]))
-      )
-    )
-  )
+  return Mon.fold(monoidPrinter)([data(d).map(array.of), constructors(d), folds(d), prisms(d), setoid(d)])
 }
 
-export const print = (d: M.Data, options: A.Options): string => {
+export const print = (d: M.Data, options: Ast.Options): string => {
   return all(d)
     .run(options)
     .join('\n\n')

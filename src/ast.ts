@@ -1,10 +1,11 @@
 import { none, Option, some } from 'fp-ts/lib/Option'
 import { Reader, reader, ask } from 'fp-ts/lib/Reader'
-import { array, empty } from 'fp-ts/lib/Array'
 import * as ts from 'typescript'
 import * as M from './model'
 import { Lens } from 'monocle-ts'
 import { tuple } from 'fp-ts/lib/function'
+import * as S from 'fp-ts/lib/Semigroup'
+import * as A from 'fp-ts/lib/Array'
 
 export interface Options {
   /** the name of the field used as tag */
@@ -72,11 +73,11 @@ const getTypeNode = (type: M.Type): ts.TypeNode => {
         undefined,
         getDomainParameterName(type.domain)
           .map(domainName => [getParameterDeclaration(domainName, getTypeNode(type.domain))])
-          .getOrElse([]),
+          .getOrElse(A.empty),
         getTypeNode(type.codomain)
       )
     case 'Unit':
-      return ts.createTypeReferenceNode('undefined', [])
+      return ts.createTypeReferenceNode('undefined', A.empty)
   }
 }
 
@@ -137,7 +138,7 @@ const getDataTypeReferenceWithNever = (d: M.Data): ts.TypeReferenceNode => {
  * <L, R> in Either<L, R>
  */
 const getDataTypeParameterReferences = (d: M.Data): Array<ts.TypeReferenceNode> => {
-  return d.parameterDeclarations.map(p => ts.createTypeReferenceNode(p.name, []))
+  return d.parameterDeclarations.map(p => ts.createTypeReferenceNode(p.name, A.empty))
 }
 
 /**
@@ -187,7 +188,7 @@ const getDataModuleDeclaration = (d: M.Data): ts.ModuleDeclaration => {
       getInterfaceDeclaration(URI2HKT, parameters.map(p => ts.createTypeParameterDeclaration(p)), [
         getPropertySignature(
           d.name,
-          ts.createTypeReferenceNode(d.name, parameters.map(p => ts.createTypeReferenceNode(p, []))),
+          ts.createTypeReferenceNode(d.name, parameters.map(p => ts.createTypeReferenceNode(p, A.empty))),
           false
         )
       ])
@@ -239,7 +240,7 @@ const getFoldMethod = (d: M.Data, c: M.Constructor, name: string, isEager: boole
     name,
     [ts.createTypeParameterDeclaration(returnTypeParameterName)],
     getFoldPositionalHandlers(d, isEager, c),
-    ts.createTypeReferenceNode(returnTypeParameterName, []),
+    ts.createTypeReferenceNode(returnTypeParameterName, A.empty),
     ts.createBlock([ts.createReturn(returnExpression)])
   )
   return fold
@@ -247,8 +248,9 @@ const getFoldMethod = (d: M.Data, c: M.Constructor, name: string, isEager: boole
 
 const getDataFptsEncoding = (d: M.Data): AST<Array<ts.Node>> => {
   return new Reader(e => {
+    const constructors = d.constructors.toArray()
     const unionType = ts.createUnionTypeNode(
-      d.constructors.toArray().map(c => {
+      constructors.map(c => {
         return ts.createTypeReferenceNode(c.name, getDataTypeParameterReferences(d))
       })
     )
@@ -259,7 +261,7 @@ const getDataFptsEncoding = (d: M.Data): AST<Array<ts.Node>> => {
 
     const uriType = getTypeAliasDeclaration('URI', ts.createTypeQueryNode(ts.createIdentifier('URI')))
 
-    const classes = d.constructors.toArray().map(c => {
+    const classes = constructors.map(c => {
       const typeParameters = getDataTypeParameterDeclarations(d)
       const parameters: Array<ts.ParameterDeclaration> = c.members.map((m, position) => {
         return getParameterDeclaration(getMemberName(m, position), getTypeNode(m.type), true)
@@ -280,12 +282,12 @@ const getDataFptsEncoding = (d: M.Data): AST<Array<ts.Node>> => {
 
       const len = getDataParametersLength(d)
       const fptsParameters = URI2HKTParametersNames.slice(0, len).map(name =>
-        getPropertyDeclaration(`_${name}`, ts.createTypeReferenceNode(name, []), undefined, true)
+        getPropertyDeclaration(`_${name}`, ts.createTypeReferenceNode(name, A.empty), undefined, true)
       )
 
-      const URI = getPropertyDeclaration('_URI', ts.createTypeReferenceNode('URI', []), undefined, true)
+      const URI = getPropertyDeclaration('_URI', ts.createTypeReferenceNode('URI', A.empty), undefined, true)
 
-      let folds: Array<ts.ClassElement> = empty
+      let folds: Array<ts.ClassElement> = A.empty
       if (M.isSum(d)) {
         if (isEagerFoldSupported(d)) {
           folds = [getFoldMethod(d, c, e.foldName, true), getFoldMethod(d, c, `${e.foldName}L`, false)]
@@ -306,7 +308,7 @@ const getDataFptsEncoding = (d: M.Data): AST<Array<ts.Node>> => {
               d.name,
               d.parameterDeclarations.map(_ => ts.createKeywordTypeNode(ts.SyntaxKind.NeverKeyword))
             ),
-            ts.createNew(ts.createIdentifier(c.name), undefined, [])
+            ts.createNew(ts.createIdentifier(c.name), undefined, A.empty)
           )
         )
       }
@@ -357,7 +359,7 @@ const getConstantDeclaration = (
   isExported: boolean = true
 ): ts.VariableStatement => {
   return ts.createVariableStatement(
-    isExported ? [ts.createModifier(ts.SyntaxKind.ExportKeyword)] : [],
+    isExported ? [ts.createModifier(ts.SyntaxKind.ExportKeyword)] : A.empty,
     ts.createVariableDeclarationList([ts.createVariableDeclaration(name, type, initializer)], ts.NodeFlags.Const)
   )
 }
@@ -430,14 +432,10 @@ const getLiteralConstructor = (c: M.Constructor, d: M.Data): AST<ts.Node> => {
 }
 
 const getConstructorsLiteralEncoding = (d: M.Data): AST<Array<ts.Node>> => {
-  const constructors = d.constructors.toArray().map(c => {
-    if (c.members.length === 0) {
-      return getLiteralNullaryConstructor(c, d)
-    } else {
-      return getLiteralConstructor(c, d)
-    }
-  })
-  return array.sequence(reader)(constructors)
+  const constructors = d.constructors
+    .toArray()
+    .map(c => A.foldL(c.members, () => getLiteralNullaryConstructor(c, d), () => getLiteralConstructor(c, d)))
+  return A.array.sequence(reader)(constructors)
 }
 
 const getFptsNullaryConstructor = (c: M.Constructor, d: M.Data): AST<ts.Node> => {
@@ -473,14 +471,10 @@ const getFptsConstructor = (c: M.Constructor, d: M.Data): AST<ts.Node> => {
 }
 
 const getConstructorsFptsEncoding = (d: M.Data): AST<Array<ts.Node>> => {
-  const constructors = d.constructors.toArray().map(c => {
-    if (c.members.length === 0) {
-      return getFptsNullaryConstructor(c, d)
-    } else {
-      return getFptsConstructor(c, d)
-    }
-  })
-  return array.sequence(reader)(constructors)
+  const constructors = d.constructors
+    .toArray()
+    .map(c => A.foldL(c.members, () => getFptsNullaryConstructor(c, d), () => getFptsConstructor(c, d)))
+  return A.array.sequence(reader)(constructors)
 }
 
 export const constructors = (d: M.Data): AST<Array<ts.Node>> => {
@@ -516,11 +510,11 @@ const getFoldPositionalHandlers = (
   return d.constructors.toArray().map(c => {
     const type =
       isEager && M.isNullary(c)
-        ? ts.createTypeReferenceNode(returnTypeParameterName, [])
+        ? ts.createTypeReferenceNode(returnTypeParameterName, A.empty)
         : ts.createFunctionTypeNode(
             undefined,
             c.members.map((m, position) => getParameterDeclaration(getMemberName(m, position), getTypeNode(m.type))),
-            ts.createTypeReferenceNode(returnTypeParameterName, [])
+            ts.createTypeReferenceNode(returnTypeParameterName, A.empty)
           )
     const isParameterUnused = usedConstructor !== undefined && usedConstructor !== c
     const foldHandlerName = isParameterUnused ? `_${getFoldHandlerName(c)}` : getFoldHandlerName(c)
@@ -534,11 +528,11 @@ const getFoldRecordHandlers = (d: M.Data, handlersName: string, isEager: boolean
     d.constructors.toArray().map(c => {
       const type =
         isEager && M.isNullary(c)
-          ? ts.createTypeReferenceNode(returnTypeParameterName, [])
+          ? ts.createTypeReferenceNode(returnTypeParameterName, A.empty)
           : ts.createFunctionTypeNode(
               undefined,
               c.members.map((m, position) => getParameterDeclaration(getMemberName(m, position), getTypeNode(m.type))),
-              ts.createTypeReferenceNode(returnTypeParameterName, [])
+              ts.createTypeReferenceNode(returnTypeParameterName, A.empty)
             )
       return getPropertySignature(getFoldHandlerName(c), type, false)
     })
@@ -559,7 +553,7 @@ const getFoldPositionalBody = (d: M.Data, matcheeName: string, tagName: string, 
                 ? access
                 : ts.createCall(
                     access,
-                    [],
+                    A.empty,
                     c.members.map((m, position) => {
                       return ts.createPropertyAccess(ts.createIdentifier(matcheeName), getMemberName(m, position))
                     })
@@ -585,7 +579,7 @@ const getFoldRecordBody = (d: M.Data, matcheeName: string, tagName: string, hand
                 ? access
                 : ts.createCall(
                     access,
-                    [],
+                    A.empty,
                     c.members.map((m, position) => {
                       return ts.createPropertyAccess(ts.createIdentifier(matcheeName), getMemberName(m, position))
                     })
@@ -614,7 +608,7 @@ const getFold = (d: M.Data, name: string, isEager: boolean): AST<ts.FunctionDecl
         ? getFoldPositionalHandlers(d, isEager)
         : getFoldRecordHandlers(d, handlersStyle.handlersName, isEager)
     const parameters = [matchee, ...handlers]
-    const returnType = ts.createTypeReferenceNode(returnTypeParameterName, [])
+    const returnType = ts.createTypeReferenceNode(returnTypeParameterName, A.empty)
     const body =
       handlersStyle.type === 'positional'
         ? getFoldPositionalBody(d, matcheeName, tagName, isEager)
@@ -623,9 +617,9 @@ const getFold = (d: M.Data, name: string, isEager: boolean): AST<ts.FunctionDecl
   })
 }
 
-export const fold = (d: M.Data): AST<Array<ts.FunctionDeclaration>> => {
+export const folds = (d: M.Data): AST<Array<ts.FunctionDeclaration>> => {
   return ask<Options>().chain(e => {
-    let folds: Array<AST<ts.FunctionDeclaration>> = empty
+    let folds: Array<AST<ts.FunctionDeclaration>> = A.empty
     if (e.encoding === 'literal') {
       if (M.isSum(d)) {
         if (isEagerFoldSupported(d)) {
@@ -635,14 +629,14 @@ export const fold = (d: M.Data): AST<Array<ts.FunctionDeclaration>> => {
         }
       }
     }
-    return array.sequence(reader)(folds)
+    return A.array.sequence(reader)(folds)
   })
 }
 
 const getImportDeclaration = (namedImports: Array<string>, from: string): ts.ImportDeclaration => {
   return ts.createImportDeclaration(
-    [],
-    [],
+    A.empty,
+    A.empty,
     ts.createImportClause(
       undefined,
       ts.createNamedImports(namedImports.map(name => ts.createImportSpecifier(undefined, ts.createIdentifier(name))))
@@ -652,58 +646,54 @@ const getImportDeclaration = (namedImports: Array<string>, from: string): ts.Imp
 }
 
 const getArrowFunction = (parameters: Array<string>, body: ts.ConciseBody) => {
-  return ts.createArrowFunction([], [], parameters.map(p => getParameterDeclaration(p)), undefined, undefined, body)
+  return ts.createArrowFunction(
+    [],
+    A.empty,
+    parameters.map(p => getParameterDeclaration(p)),
+    undefined,
+    undefined,
+    body
+  )
 }
 
 export const prisms = (d: M.Data): AST<Array<ts.Node>> => {
   return ask<Options>().chain(e => {
     if (!M.isSum(d)) {
-      return reader.of(empty)
+      return reader.of(A.empty)
     }
     const dataType = getDataType(d)
     const type = ts.createTypeReferenceNode('Prism', [dataType, dataType])
     const getPrism = (name: string) => {
-      return ts.createCall(
-        ts.createPropertyAccess(ts.createIdentifier('Prism'), 'fromPredicate'),
-        [],
-        [
-          getArrowFunction(
-            ['s'],
-            getStrictEquals(ts.createPropertyAccess(ts.createIdentifier('s'), e.tagName), ts.createStringLiteral(name))
-          )
-        ]
-      )
+      return ts.createCall(ts.createPropertyAccess(ts.createIdentifier('Prism'), 'fromPredicate'), A.empty, [
+        getArrowFunction(
+          ['s'],
+          getStrictEquals(ts.createPropertyAccess(ts.createIdentifier('s'), e.tagName), ts.createStringLiteral(name))
+        )
+      ])
     }
     const monocleImport = getImportDeclaration(['Prism'], 'monocle-ts')
     const typeParameters: Array<ts.TypeParameterDeclaration> = getDataTypeParameterDeclarations(d)
+    const constructors = d.constructors.toArray()
     if (M.isPolymorphic(d)) {
       return reader.of([
         monocleImport,
-        ...d.constructors.toArray().map<ts.Node>(c => {
+        ...constructors.map<ts.Node>(c => {
           const body = ts.createBlock([ts.createReturn(getPrism(c.name))])
-          return getFunctionDeclaration(`_${getFirstLetterLowerCase(c.name)}`, typeParameters, [], type, body)
+          return getFunctionDeclaration(`_${getFirstLetterLowerCase(c.name)}`, typeParameters, A.empty, type, body)
         })
       ])
     }
     return reader.of([
       monocleImport,
-      ...d.constructors.toArray().map(c => {
+      ...constructors.map(c => {
         return getConstantDeclaration(`_${c.name}`, getPrism(c.name), type)
       })
     ])
   })
 }
 
-const getAllBinaryExpressions = (expressions: Array<ts.Expression>): ts.Expression => {
-  if (expressions.length === 1) {
-    return expressions[0]
-  }
-  return expressions
-    .slice(2)
-    .reduce(
-      (acc, item) => ts.createBinary(acc, ts.SyntaxKind.AmpersandAmpersandToken, item),
-      ts.createBinary(expressions[0], ts.SyntaxKind.AmpersandAmpersandToken, expressions[1])
-    )
+const semigroupBinaryExpression: S.Semigroup<ts.Expression> = {
+  concat: (x, y) => ts.createBinary(x, ts.SyntaxKind.AmpersandAmpersandToken, y)
 }
 
 const getStrictEquals = (left: ts.Expression, right: ts.Expression): ts.BinaryExpression => {
@@ -711,33 +701,38 @@ const getStrictEquals = (left: ts.Expression, right: ts.Expression): ts.BinaryEx
 }
 
 export const setoid = (d: M.Data): AST<Array<ts.Node>> => {
-  const typeParameters: Array<ts.TypeParameterDeclaration> = getDataTypeParameterDeclarations(d)
-  const returnType = ts.createTypeReferenceNode('Setoid', [getDataType(d)])
-  const getSetoidName = (c: M.Constructor, m: M.Member, position: number): string => {
-    return `setoid${M.isSum(d) ? c.name : ''}${getFirstLetterUpperCase(getMemberName(m, position))}`
+  const getMemberSetoidName = (c: M.Constructor, m: M.Member, position: number): string => {
+    let s = 'setoid'
+    if (M.isSum(d)) {
+      s += c.name
+    }
+    return s + getFirstLetterUpperCase(getMemberName(m, position))
   }
-  const setoidsParameters = array.chain(d.constructors.toArray(), c => {
+  const constructors = d.constructors.toArray()
+  const setoidsParameters = A.array.chain(constructors, c => {
     return c.members
       .map((m, position) => tuple(m, position))
       .filter(([m]) => !M.isRecursiveMember(m, d))
       .map(([m, position]) => {
         const type = ts.createTypeReferenceNode('Setoid', [getTypeNode(m.type)])
-        return getParameterDeclaration(getSetoidName(c, m, position), type)
+        return getParameterDeclaration(getMemberSetoidName(c, m, position), type)
       })
   })
-  const getAnds = (c: M.Constructor) => {
-    return getAllBinaryExpressions(
-      c.members.map((m, position) => {
-        const memberSetoid = M.isRecursiveMember(m, d) ? 'S' : getSetoidName(c, m, position)
-        return ts.createCall(
-          ts.createPropertyAccess(ts.createIdentifier(memberSetoid), 'equals'),
-          [],
-          [
-            ts.createPropertyAccess(ts.createIdentifier('x'), getMemberName(m, position)),
-            ts.createPropertyAccess(ts.createIdentifier('y'), getMemberName(m, position))
-          ]
-        )
-      })
+  const getReturnValue = (c: M.Constructor): ts.Expression => {
+    return A.foldL(
+      c.members,
+      () => ts.createTrue(),
+      () => {
+        const callExpressions = c.members.map((m, position) => {
+          const setoidName = M.isRecursiveMember(m, d) ? 'S' : getMemberSetoidName(c, m, position)
+          const memberName = getMemberName(m, position)
+          return ts.createCall(ts.createPropertyAccess(ts.createIdentifier(setoidName), 'equals'), A.empty, [
+            ts.createPropertyAccess(ts.createIdentifier('x'), memberName),
+            ts.createPropertyAccess(ts.createIdentifier('y'), memberName)
+          ])
+        })
+        return S.fold(semigroupBinaryExpression)(callExpressions[0])(callExpressions.slice(1))
+      }
     )
   }
   return ask<Options>().chain(e => {
@@ -753,16 +748,15 @@ export const setoid = (d: M.Data): AST<Array<ts.Node>> => {
               ts.createBlock([ts.createReturn(ts.createTrue())])
             )
           ]
-        : []
+        : A.empty
     const ifs = [
-      ...d.constructors.toArray().map(c => {
-        const returnValue = c.members.length === 0 ? ts.createTrue() : getAnds(c)
+      ...constructors.map(c => {
         return ts.createIf(
-          getAllBinaryExpressions([
+          semigroupBinaryExpression.concat(
             getStrictEquals(ts.createPropertyAccess(ts.createIdentifier('x'), e.tagName), ts.createLiteral(c.name)),
             getStrictEquals(ts.createPropertyAccess(ts.createIdentifier('y'), e.tagName), ts.createLiteral(c.name))
-          ]),
-          ts.createBlock([ts.createReturn(returnValue)])
+          ),
+          ts.createBlock([ts.createReturn(getReturnValue(c))])
         )
       }),
       ts.createReturn(ts.createFalse())
@@ -771,16 +765,18 @@ export const setoid = (d: M.Data): AST<Array<ts.Node>> => {
     if (M.isSum(d)) {
       statements.push(...ifs)
     } else {
-      statements.push(ts.createReturn(getAnds(d.constructors.head)))
+      statements.push(ts.createReturn(getReturnValue(d.constructors.head)))
     }
     const arrowFunction = getArrowFunction(['x', 'y'], ts.createBlock(statements))
     const setoid =
       e.version === '1.13'
         ? ts.createObjectLiteral([ts.createPropertyAssignment('equals', arrowFunction)])
-        : ts.createCall(ts.createIdentifier('fromEquals'), [], [arrowFunction])
+        : ts.createCall(ts.createIdentifier('fromEquals'), A.empty, [arrowFunction])
+    const returnType = ts.createTypeReferenceNode('Setoid', [getDataType(d)])
     const body = M.isRecursive(d)
       ? [getConstantDeclaration('S', setoid, returnType, false), ts.createReturn(ts.createIdentifier('S'))]
       : [ts.createReturn(setoid)]
+    const typeParameters: Array<ts.TypeParameterDeclaration> = getDataTypeParameterDeclarations(d)
     return reader.of([
       setoidImport,
       getFunctionDeclaration('getSetoid', typeParameters, setoidsParameters, returnType, ts.createBlock(body))

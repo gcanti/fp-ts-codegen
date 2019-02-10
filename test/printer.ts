@@ -379,44 +379,42 @@ export class GotData<A extends string> {
         )
       })
     })
-
-    describe('folds', () => {
-      it('should not output any fold function', () => {
-        assertPrinterEqual(P.fold, E.Option, [], fptsEncodingOptions)
-      })
-    })
   })
 
-  describe('fold', () => {
+  describe('folds', () => {
     it('positional fields', () => {
-      assertPrinterEqual(P.fold, E.Option, [
+      assertPrinterEqual(P.folds, E.Option, [
         'export function fold<A, R>(fa: Option<A>, onNone: R, onSome: (value0: A) => R): R { switch (fa.type) {\n    case "None": return onNone;\n    case "Some": return onSome(fa.value0);\n} }',
         'export function foldL<A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) => R): R { switch (fa.type) {\n    case "None": return onNone();\n    case "Some": return onSome(fa.value0);\n} }'
       ])
     })
 
     it('record fields', () => {
-      assertPrinterEqual(P.fold, E.Maybe, [
+      assertPrinterEqual(P.folds, E.Maybe, [
         'export function fold<A, R>(fa: Maybe<A>, onNothing: R, onJust: (value: A) => R): R { switch (fa.type) {\n    case "Nothing": return onNothing;\n    case "Just": return onJust(fa.value);\n} }',
         'export function foldL<A, R>(fa: Maybe<A>, onNothing: () => R, onJust: (value: A) => R): R { switch (fa.type) {\n    case "Nothing": return onNothing();\n    case "Just": return onJust(fa.value);\n} }'
       ])
     })
 
     it('should not emit a fold if data is not a sum type', () => {
-      assertPrinterEqual(P.fold, E.User, [])
+      assertPrinterEqual(P.folds, E.User, [])
     })
 
     it('should not emit a fold if all constructors are not nullary', () => {
-      assertPrinterEqual(P.fold, E.Either, [
+      assertPrinterEqual(P.folds, E.Either, [
         'export function fold<L, R, R1>(fa: Either<L, R>, onLeft: (value0: L) => R1, onRight: (value0: R) => R1): R1 { switch (fa.type) {\n    case "Left": return onLeft(fa.value0);\n    case "Right": return onRight(fa.value0);\n} }'
       ])
     })
 
     it('should handle monomorphic data', () => {
-      assertPrinterEqual(P.fold, E.FooBarBaz, [
+      assertPrinterEqual(P.folds, E.FooBarBaz, [
         'export function fold<R>(fa: FooBarBaz, onFoo: R, onBar: R, onBaz: R): R { switch (fa.type) {\n    case "Foo": return onFoo;\n    case "Bar": return onBar;\n    case "Baz": return onBaz;\n} }',
         'export function foldL<R>(fa: FooBarBaz, onFoo: () => R, onBar: () => R, onBaz: () => R): R { switch (fa.type) {\n    case "Foo": return onFoo();\n    case "Bar": return onBar();\n    case "Baz": return onBaz();\n} }'
       ])
+    })
+
+    it('should not output any fold function when the encodig is fp-ts', () => {
+      assertPrinterEqual(P.folds, E.Option, [], fptsEncodingOptions)
     })
   })
 
@@ -504,7 +502,7 @@ export function getSetoid<A>(setoidSomeValue0: Setoid<A>): Setoid<Option<A>> { r
 
     it('should handle custom fold names', () => {
       assertPrinterEqual(
-        P.fold,
+        P.folds,
         E.Option,
         [
           `export function match<A, R>(fa: Option<A>, onNone: R, onSome: (value0: A) => R): R { switch (fa.type) {
@@ -522,7 +520,7 @@ export function getSetoid<A>(setoidSomeValue0: Setoid<A>): Setoid<Option<A>> { r
 
     it('should handle custom matchee name', () => {
       assertPrinterEqual(
-        P.fold,
+        P.folds,
         E.Option,
         [
           `export function fold<A, R>(input: Option<A>, onNone: R, onSome: (value0: A) => R): R { switch (input.type) {
@@ -540,7 +538,7 @@ export function getSetoid<A>(setoidSomeValue0: Setoid<A>): Setoid<Option<A>> { r
 
     it('should handle handlersName handlersStyle', () => {
       assertPrinterEqual(
-        P.fold,
+        P.folds,
         E.Option,
         [
           `export function fold<A, R>(fa: Option<A>, clauses: {
@@ -563,7 +561,7 @@ export function getSetoid<A>(setoidSomeValue0: Setoid<A>): Setoid<Option<A>> { r
     })
 
     describe('version', () => {
-      it('should output different implementation of setoid', () => {
+      it('should output different implementations of setoid for 1.13 and 1.14', () => {
         assertPrinterEqual(
           P.setoid,
           E.Option,
