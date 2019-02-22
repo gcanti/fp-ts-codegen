@@ -82,3 +82,13 @@ export const Writer = M.data(
   [M.parameterDeclaration('W'), M.parameterDeclaration('A')],
   M.constructor('Writer', [M.member(M.fun(M.unit, M.tuple([M.ref('A'), M.ref('W')])))])
 )
+
+// data Nullary = Nullary
+export const Nullary = M.data('Nullary', [], M.constructor('Nullary'))
+
+// data NotAlignedNames = Ctor string
+export const NotAlignedNames = M.data(
+  'NotAlignedNames',
+  [],
+  M.constructor('Ctor', [M.member(M.ref('string'), some('value'))])
+)

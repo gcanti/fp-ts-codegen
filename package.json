@@ -1,6 +1,6 @@
 {
   "name": "fp-ts-codegen",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "TypeScript code generation from a haskell-like syntax for ADT",
   "files": [
     "lib"
@@ -32,7 +32,7 @@
   },
   "homepage": "https://github.com/gcanti/fp-ts-codegen",
   "dependencies": {
-    "fp-ts": "^1.13.0",
+    "fp-ts": "^1.14.1",
     "monocle-ts": "^1.5.3",
     "parser-ts": "^0.5.1",
     "typescript": "^3.2.4"
@@ -92,7 +92,7 @@
         "branches": 100,
         "functions": 100,
         "lines": 100,
-        "statements": 0
+        "statements": 100
       }
     }
   }
