@@ -9,4 +9,6 @@ import './Constrained'
 import './Tuple2'
 import './State'
 import './Writer'
+import './Nullary'
+import './NotAlignedNames'
 

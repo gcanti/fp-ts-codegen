@@ -32,15 +32,13 @@ export const _Bar: Prism<FooBarBaz, FooBarBaz> = Prism.fromPredicate(s => s.type
 
 export const _Baz: Prism<FooBarBaz, FooBarBaz> = Prism.fromPredicate(s => s.type === "Baz");
 
-import { Setoid } from "fp-ts/lib/Setoid";
+import { Setoid, fromEquals } from "fp-ts/lib/Setoid";
 
-export function getSetoid(): Setoid<FooBarBaz> { return { equals: (x, y) => { if (x === y) {
-        return true;
-    } if (x.type === "Foo" && y.type === "Foo") {
-        return true;
-    } if (x.type === "Bar" && y.type === "Bar") {
-        return true;
-    } if (x.type === "Baz" && y.type === "Baz") {
-        return true;
-    } return false; } }; }
+export function getSetoid(): Setoid<FooBarBaz> { return fromEquals((x, y) => { if (x.type === "Foo" && y.type === "Foo") {
+    return true;
+} if (x.type === "Bar" && y.type === "Bar") {
+    return true;
+} if (x.type === "Baz" && y.type === "Baz") {
+    return true;
+} return false; }); }
 

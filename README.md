@@ -272,7 +272,6 @@ export interface Options {
    */
   handlersStyle: { type: 'positional' } | { type: 'record'; handlersName: string }
   encoding: 'literal' | 'fp-ts'
-  version: '1.13' | '1.14'
 }
 
 export const defaultOptions: Options = {
@@ -280,8 +279,7 @@ export const defaultOptions: Options = {
   foldName: 'fold',
   matcheeName: 'fa',
   handlersStyle: { type: 'positional' },
-  encoding: 'literal',
-  version: '1.13'
+  encoding: 'literal'
 }
 ```
 

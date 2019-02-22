@@ -25,13 +25,11 @@ export function _nothing<A>(): Prism<Maybe<A>, Maybe<A>> { return Prism.fromPred
 
 export function _just<A>(): Prism<Maybe<A>, Maybe<A>> { return Prism.fromPredicate(s => s.type === "Just"); }
 
-import { Setoid } from "fp-ts/lib/Setoid";
+import { Setoid, fromEquals } from "fp-ts/lib/Setoid";
 
-export function getSetoid<A>(setoidJustValue: Setoid<A>): Setoid<Maybe<A>> { return { equals: (x, y) => { if (x === y) {
-        return true;
-    } if (x.type === "Nothing" && y.type === "Nothing") {
-        return true;
-    } if (x.type === "Just" && y.type === "Just") {
-        return setoidJustValue.equals(x.value, y.value);
-    } return false; } }; }
+export function getSetoid<A>(setoidJustValue: Setoid<A>): Setoid<Maybe<A>> { return fromEquals((x, y) => { if (x.type === "Nothing" && y.type === "Nothing") {
+    return true;
+} if (x.type === "Just" && y.type === "Just") {
+    return setoidJustValue.equals(x.value, y.value);
+} return false; }); }
 

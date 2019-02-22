@@ -27,13 +27,11 @@ export function _leaf<A>(): Prism<Tree<A>, Tree<A>> { return Prism.fromPredicate
 
 export function _node<A>(): Prism<Tree<A>, Tree<A>> { return Prism.fromPredicate(s => s.type === "Node"); }
 
-import { Setoid } from "fp-ts/lib/Setoid";
+import { Setoid, fromEquals } from "fp-ts/lib/Setoid";
 
-export function getSetoid<A>(setoidNodeValue1: Setoid<A>): Setoid<Tree<A>> { const S: Setoid<Tree<A>> = { equals: (x, y) => { if (x === y) {
-        return true;
-    } if (x.type === "Leaf" && y.type === "Leaf") {
-        return true;
-    } if (x.type === "Node" && y.type === "Node") {
-        return S.equals(x.value0, y.value0) && setoidNodeValue1.equals(x.value1, y.value1) && S.equals(x.value2, y.value2);
-    } return false; } }; return S; }
+export function getSetoid<A>(setoidNodeValue1: Setoid<A>): Setoid<Tree<A>> { const S: Setoid<Tree<A>> = fromEquals((x, y) => { if (x.type === "Leaf" && y.type === "Leaf") {
+    return true;
+} if (x.type === "Node" && y.type === "Node") {
+    return S.equals(x.value0, y.value0) && setoidNodeValue1.equals(x.value1, y.value1) && S.equals(x.value2, y.value2);
+} return false; }); return S; }
 

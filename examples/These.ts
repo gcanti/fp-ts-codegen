@@ -30,15 +30,13 @@ export function _right<A, B>(): Prism<These<A, B>, These<A, B>> { return Prism.f
 
 export function _both<A, B>(): Prism<These<A, B>, These<A, B>> { return Prism.fromPredicate(s => s.type === "Both"); }
 
-import { Setoid } from "fp-ts/lib/Setoid";
+import { Setoid, fromEquals } from "fp-ts/lib/Setoid";
 
-export function getSetoid<A, B>(setoidLeftLeft: Setoid<A>, setoidRightRight: Setoid<B>, setoidBothLeft: Setoid<A>, setoidBothRight: Setoid<B>): Setoid<These<A, B>> { return { equals: (x, y) => { if (x === y) {
-        return true;
-    } if (x.type === "Left" && y.type === "Left") {
-        return setoidLeftLeft.equals(x.left, y.left);
-    } if (x.type === "Right" && y.type === "Right") {
-        return setoidRightRight.equals(x.right, y.right);
-    } if (x.type === "Both" && y.type === "Both") {
-        return setoidBothLeft.equals(x.left, y.left) && setoidBothRight.equals(x.right, y.right);
-    } return false; } }; }
+export function getSetoid<A, B>(setoidLeftLeft: Setoid<A>, setoidRightRight: Setoid<B>, setoidBothLeft: Setoid<A>, setoidBothRight: Setoid<B>): Setoid<These<A, B>> { return fromEquals((x, y) => { if (x.type === "Left" && y.type === "Left") {
+    return setoidLeftLeft.equals(x.left, y.left);
+} if (x.type === "Right" && y.type === "Right") {
+    return setoidRightRight.equals(x.right, y.right);
+} if (x.type === "Both" && y.type === "Both") {
+    return setoidBothLeft.equals(x.left, y.left) && setoidBothRight.equals(x.right, y.right);
+} return false; }); }
 

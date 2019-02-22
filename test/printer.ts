@@ -80,7 +80,6 @@ describe('printer', () => {
           P.data,
           data,
           `export type Tuple = {
-    readonly type: "Tuple";
     readonly value0: (tuple: [A, B]) => C;
 };`
         )
@@ -96,7 +95,6 @@ describe('printer', () => {
           P.data,
           data,
           `export type Function = {
-    readonly type: "Function";
     readonly value0: (f: (a: A) => B) => C;
 };`
         )
@@ -107,7 +105,6 @@ describe('printer', () => {
           P.data,
           E.Tuple2,
           `export type Tuple2<A, B> = {
-    readonly type: "Tuple2";
     readonly value0: [A, B];
 };`
         )
@@ -119,7 +116,6 @@ describe('printer', () => {
           P.data,
           data,
           `export type Unit = {
-    readonly type: "Unit";
     readonly value0: undefined;
 };`
         )
@@ -130,7 +126,6 @@ describe('printer', () => {
           P.data,
           E.Writer,
           `export type Writer<W, A> = {
-    readonly type: "Writer";
     readonly value0: () => [A, W];
 };`
         )
@@ -138,7 +133,6 @@ describe('printer', () => {
           P.data,
           E.State,
           `export type State<S, A> = {
-    readonly type: "State";
     readonly value0: (s: S) => [A, S];
 };`
         )
@@ -149,7 +143,6 @@ describe('printer', () => {
           P.data,
           E.User,
           `export type User = {
-    readonly type: "User";
     readonly name: string;
     readonly surname: string;
     readonly age: number;
@@ -205,8 +198,12 @@ describe('printer', () => {
 
       it('monomorphic constructors', () => {
         assertPrinterEqual(P.constructors, E.User, [
-          'export function user(name: string, surname: string, age: number): User { return { type: "User", name, surname, age }; }'
+          'export function user(name: string, surname: string, age: number): User { return { name, surname, age }; }'
         ])
+      })
+
+      it('monomorphic nullary constructor', () => {
+        assertPrinterEqual(P.constructors, E.Nullary, ['export const nullary: Nullary = {};'])
       })
     })
   })
@@ -215,26 +212,25 @@ describe('printer', () => {
 
   describe('fp-ts encoding', () => {
     describe('data', () => {
-      it('non a sum type', () => {
+      it('not a sum type', () => {
         assertPrinterEqual(
           P.data,
           E.User,
-          `declare module "fp-ts/lib/HKT" {
-    interface  {
-        User: User;
-    }
-}
-
-export const URI = "User";
-
-export type URI = typeof URI;
-
-export type User = User;
-
-export class User {
-    readonly _tag: "User" = "User";
-    readonly _URI!: URI;
+          `export class User {
     constructor(readonly name: string, readonly surname: string, readonly age: number) { }
+}`,
+          fptsEncodingOptions
+        )
+      })
+
+      it('not aligned names', () => {
+        assertPrinterEqual(
+          P.data,
+          E.NotAlignedNames,
+          `export type NotAlignedNames = Ctor;
+
+export class Ctor {
+    constructor(readonly value: string) { }
 }`,
           fptsEncodingOptions
         )
@@ -257,7 +253,7 @@ export type URI = typeof URI;
 export type Either<L, R> = Left<L, R> | Right<L, R>;
 
 export class Left<L, R> {
-    readonly _tag: "Left" = "Left";
+    readonly type: "Left" = "Left";
     readonly _A!: A;
     readonly _L!: L;
     readonly _URI!: URI;
@@ -266,7 +262,7 @@ export class Left<L, R> {
 }
 
 export class Right<L, R> {
-    readonly _tag: "Right" = "Right";
+    readonly type: "Right" = "Right";
     readonly _A!: A;
     readonly _L!: L;
     readonly _URI!: URI;
@@ -295,7 +291,7 @@ export type Option<A> = None<A> | Some<A>;
 
 export class None<A> {
     static value: Option<never> = new None();
-    readonly _tag: "None" = "None";
+    readonly type: "None" = "None";
     readonly _A!: A;
     readonly _URI!: URI;
     private constructor() { }
@@ -304,7 +300,7 @@ export class None<A> {
 }
 
 export class Some<A> {
-    readonly _tag: "Some" = "Some";
+    readonly type: "Some" = "Some";
     readonly _A!: A;
     readonly _URI!: URI;
     constructor(readonly value0: A) { }
@@ -333,7 +329,7 @@ export type Constrained<A extends string> = Fetching<A> | GotData<A>;
 
 export class Fetching<A extends string> {
     static value: Constrained<never> = new Fetching();
-    readonly _tag: "Fetching" = "Fetching";
+    readonly type: "Fetching" = "Fetching";
     readonly _A!: A;
     readonly _URI!: URI;
     private constructor() { }
@@ -342,7 +338,7 @@ export class Fetching<A extends string> {
 }
 
 export class GotData<A extends string> {
-    readonly _tag: "GotData" = "GotData";
+    readonly type: "GotData" = "GotData";
     readonly _A!: A;
     readonly _URI!: URI;
     constructor(readonly value0: A) { }
@@ -436,22 +432,26 @@ export class GotData<A extends string> {
   describe('setoid', () => {
     it('should handle monomorphic data', () => {
       assertPrinterEqual(P.setoid, E.FooBarBaz, [
-        'import { Setoid } from "fp-ts/lib/Setoid";',
-        'export function getSetoid(): Setoid<FooBarBaz> { return { equals: (x, y) => { if (x === y) {\n        return true;\n    } if (x.type === "Foo" && y.type === "Foo") {\n        return true;\n    } if (x.type === "Bar" && y.type === "Bar") {\n        return true;\n    } if (x.type === "Baz" && y.type === "Baz") {\n        return true;\n    } return false; } }; }'
+        'import { Setoid, fromEquals } from "fp-ts/lib/Setoid";',
+        'export function getSetoid(): Setoid<FooBarBaz> { return fromEquals((x, y) => { if (x.type === "Foo" && y.type === "Foo") {\n    return true;\n} if (x.type === "Bar" && y.type === "Bar") {\n    return true;\n} if (x.type === "Baz" && y.type === "Baz") {\n    return true;\n} return false; }); }'
       ])
+    })
+
+    it('should handle monomorphic nullary', () => {
+      assertPrinterEqual(P.setoid, E.Nullary, [])
     })
 
     it('should handle non sum types', () => {
       assertPrinterEqual(P.setoid, E.User, [
-        'import { Setoid } from "fp-ts/lib/Setoid";',
-        'export function getSetoid(setoidName: Setoid<string>, setoidSurname: Setoid<string>, setoidAge: Setoid<number>): Setoid<User> { return { equals: (x, y) => { if (x === y) {\n        return true;\n    } return setoidName.equals(x.name, y.name) && setoidSurname.equals(x.surname, y.surname) && setoidAge.equals(x.age, y.age); } }; }'
+        'import { Setoid, fromEquals } from "fp-ts/lib/Setoid";',
+        'export function getSetoid(setoidName: Setoid<string>, setoidSurname: Setoid<string>, setoidAge: Setoid<number>): Setoid<User> { return fromEquals((x, y) => { return setoidName.equals(x.name, y.name) && setoidSurname.equals(x.surname, y.surname) && setoidAge.equals(x.age, y.age); }); }'
       ])
     })
 
     it('should handle recursive data structures', () => {
       assertPrinterEqual(P.setoid, E.Tree, [
-        'import { Setoid } from "fp-ts/lib/Setoid";',
-        'export function getSetoid<A>(setoidNodeValue1: Setoid<A>): Setoid<Tree<A>> { const S: Setoid<Tree<A>> = { equals: (x, y) => { if (x === y) {\n        return true;\n    } if (x.type === "Leaf" && y.type === "Leaf") {\n        return true;\n    } if (x.type === "Node" && y.type === "Node") {\n        return S.equals(x.value0, y.value0) && setoidNodeValue1.equals(x.value1, y.value1) && S.equals(x.value2, y.value2);\n    } return false; } }; return S; }'
+        'import { Setoid, fromEquals } from "fp-ts/lib/Setoid";',
+        'export function getSetoid<A>(setoidNodeValue1: Setoid<A>): Setoid<Tree<A>> { const S: Setoid<Tree<A>> = fromEquals((x, y) => { if (x.type === "Leaf" && y.type === "Leaf") {\n    return true;\n} if (x.type === "Node" && y.type === "Node") {\n    return S.equals(x.value0, y.value0) && setoidNodeValue1.equals(x.value1, y.value1) && S.equals(x.value2, y.value2);\n} return false; }); return S; }'
       ])
     })
   })
@@ -488,15 +488,13 @@ export function _none<A>(): Prism<Option<A>, Option<A>> { return Prism.fromPredi
 
 export function _some<A>(): Prism<Option<A>, Option<A>> { return Prism.fromPredicate(s => s.tag === "Some"); }
 
-import { Setoid } from "fp-ts/lib/Setoid";
+import { Setoid, fromEquals } from \"fp-ts/lib/Setoid\";
 
-export function getSetoid<A>(setoidSomeValue0: Setoid<A>): Setoid<Option<A>> { return { equals: (x, y) => { if (x === y) {
-        return true;
-    } if (x.tag === "None" && y.tag === "None") {
-        return true;
-    } if (x.tag === "Some" && y.tag === "Some") {
-        return setoidSomeValue0.equals(x.value0, y.value0);
-    } return false; } }; }`
+export function getSetoid<A>(setoidSomeValue0: Setoid<A>): Setoid<Option<A>> { return fromEquals((x, y) => { if (x.tag === "None" && y.tag === "None") {
+    return true;
+} if (x.tag === "Some" && y.tag === "Some") {
+    return setoidSomeValue0.equals(x.value0, y.value0);
+} return false; }); }`
       )
     })
 
@@ -558,29 +556,6 @@ export function getSetoid<A>(setoidSomeValue0: Setoid<A>): Setoid<Option<A>> { r
         ],
         lenses.handlersStyle.set({ type: 'record', handlersName: 'clauses' })(defaultOptions)
       )
-    })
-
-    describe('version', () => {
-      it('should output different implementations of setoid for 1.13 and 1.14', () => {
-        assertPrinterEqual(
-          P.setoid,
-          E.Option,
-          [
-            'import { Setoid } from "fp-ts/lib/Setoid";',
-            'export function getSetoid<A>(setoidSomeValue0: Setoid<A>): Setoid<Option<A>> { return { equals: (x, y) => { if (x === y) {\n        return true;\n    } if (x.type === "None" && y.type === "None") {\n        return true;\n    } if (x.type === "Some" && y.type === "Some") {\n        return setoidSomeValue0.equals(x.value0, y.value0);\n    } return false; } }; }'
-          ],
-          lenses.version.set('1.13')(defaultOptions)
-        )
-        assertPrinterEqual(
-          P.setoid,
-          E.Option,
-          [
-            'import { Setoid, fromEquals } from "fp-ts/lib/Setoid";',
-            'export function getSetoid<A>(setoidSomeValue0: Setoid<A>): Setoid<Option<A>> { return fromEquals((x, y) => { if (x.type === "None" && y.type === "None") {\n    return true;\n} if (x.type === "Some" && y.type === "Some") {\n    return setoidSomeValue0.equals(x.value0, y.value0);\n} return false; }); }'
-          ],
-          lenses.version.set('1.14')(defaultOptions)
-        )
-      })
     })
   })
 })

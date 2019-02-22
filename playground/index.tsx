@@ -91,6 +91,7 @@ class App extends React.Component<Props, State> {
                   <option value="data These A B = Left { left :: A } | Right { right :: B } | Both { left :: A, right :: B }">
                     These (record syntax)
                   </option>
+                  <option value="data User = User { name :: string, surname :: string, age :: number }">User</option>
                 </select>
               </td>
               <td className="code">
