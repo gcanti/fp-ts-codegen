@@ -5,6 +5,7 @@ import * as M from '../src/model'
 import * as E from './examples'
 import { right, left } from 'fp-ts/lib/Either'
 import { some } from 'fp-ts/lib/Option'
+import { head } from 'fp-ts/lib/NonEmptyArray2v'
 
 const assertSuccess = <A>(parser: Parser<A>, input: string, expected: A) => {
   const result = parser.run(input)
@@ -101,18 +102,18 @@ describe('Haskell parser', () => {
   it('constructor', () => {
     const parser = P.constructor
     // type references
-    assertSuccess(parser, 'None', E.Option.constructors.head)
-    assertSuccess(parser, 'Some A', E.Option.constructors.tail[0])
-    assertSuccess(parser, 'Some (A)', E.Option.constructors.tail[0])
+    assertSuccess(parser, 'None', head(E.Option.constructors))
+    assertSuccess(parser, 'Some A', E.Option.constructors[1])
+    assertSuccess(parser, 'Some (A)', E.Option.constructors[1])
     assertSuccess(parser, 'T A B', M.constructor('T', [M.member(M.ref('A')), M.member(M.ref('B'))]))
     assertSuccess(parser, 'T (A) B', M.constructor('T', [M.member(M.ref('A')), M.member(M.ref('B'))]))
     assertSuccess(parser, 'T (A B)', M.constructor('T', [M.member(M.ref('A', [M.ref('B')]))]))
-    assertSuccess(parser, 'Node (Tree A) A (Tree A)', E.Tree.constructors.tail[0])
-    assertSuccess(parser, 'User { name :: string, surname :: string, age :: number }', E.User.constructors.head)
+    assertSuccess(parser, 'Node (Tree A) A (Tree A)', E.Tree.constructors[1])
+    assertSuccess(parser, 'User { name :: string, surname :: string, age :: number }', head(E.User.constructors))
     // tuples
-    assertSuccess(parser, 'Tuple2 (A, B)', E.Tuple2.constructors.head)
+    assertSuccess(parser, 'Tuple2 (A, B)', head(E.Tuple2.constructors))
     // functions
-    assertSuccess(parser, 'State S -> (A, S)', E.State.constructors.head)
+    assertSuccess(parser, 'State S -> (A, S)', head(E.State.constructors))
   })
 
   it('data', () => {

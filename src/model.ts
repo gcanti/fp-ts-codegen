@@ -1,4 +1,4 @@
-import { NonEmptyArray } from 'fp-ts/lib/NonEmptyArray'
+import { NonEmptyArray, make } from 'fp-ts/lib/NonEmptyArray2v'
 import { Option, none } from 'fp-ts/lib/Option'
 
 export type Identifier = string
@@ -89,7 +89,7 @@ export const data = (
 ): Data => ({
   name,
   parameterDeclarations,
-  constructors: new NonEmptyArray(head, tail)
+  constructors: make(head, tail)
 })
 
 export const isNullary = (c: Constructor): boolean => {
@@ -101,15 +101,15 @@ export const isPolymorphic = (d: Data): boolean => {
 }
 
 export const isSum = (d: Data): boolean => {
-  return d.constructors.length() > 1
+  return d.constructors.length > 1
 }
 
 export const isEnum = (d: Data): boolean => {
-  return d.constructors.toArray().every(isNullary)
+  return d.constructors.every(isNullary)
 }
 
 export const isRecursiveMember = (m: Member, d: Data): boolean => m.type.kind === 'Ref' && m.type.name === d.name
 
 export const isRecursive = (d: Data): boolean => {
-  return d.constructors.toArray().some(c => c.members.some(m => isRecursiveMember(m, d)))
+  return d.constructors.some(c => c.members.some(m => isRecursiveMember(m, d)))
 }
