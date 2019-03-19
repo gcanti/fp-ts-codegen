@@ -6,6 +6,7 @@ import { Lens } from 'monocle-ts'
 import { tuple } from 'fp-ts/lib/function'
 import * as S from 'fp-ts/lib/Semigroup'
 import * as A from 'fp-ts/lib/Array'
+import { head } from 'fp-ts/lib/NonEmptyArray2v'
 
 export interface Options {
   /** the name of the field used as tag */
@@ -81,7 +82,7 @@ const getTypeNode = (type: M.Type): ts.TypeNode => {
 const getDataLiteralEncoding = (d: M.Data): AST<Array<ts.Node>> => {
   return new Reader(e => {
     const unionType = ts.createUnionTypeNode(
-      d.constructors.toArray().map(c => {
+      d.constructors.map(c => {
         const members: Array<ts.TypeElement> = c.members.map((m, position) => {
           return getPropertySignature(getMemberName(m, position), getTypeNode(m.type))
         })
@@ -251,7 +252,7 @@ const getDataFptsEncoding = (d: M.Data): AST<Array<ts.Node>> => {
   return new Reader(e => {
     const isSum = M.isSum(d)
     const isPolymorphic = M.isPolymorphic(d)
-    const constructors = d.constructors.toArray()
+    const constructors = d.constructors
 
     const classes = constructors.map(c => {
       const getStaticValueField = (): Array<ts.PropertyDeclaration> => {
@@ -343,7 +344,7 @@ const getDataFptsEncoding = (d: M.Data): AST<Array<ts.Node>> => {
 
     const prelude: Array<ts.Node> = [
       ...when(isPolymorphic, getModuleAugmentation),
-      ...when(isSum || d.constructors.head.name !== d.name, getTypeAlias)
+      ...when(isSum || head(d.constructors).name !== d.name, getTypeAlias)
     ]
     return [...prelude, ...classes]
   })
@@ -453,9 +454,9 @@ const getLiteralConstructor = (c: M.Constructor, d: M.Data): AST<ts.Node> => {
 }
 
 const getConstructorsLiteralEncoding = (d: M.Data): AST<Array<ts.Node>> => {
-  const constructors = d.constructors
-    .toArray()
-    .map(c => A.foldL(c.members, () => getLiteralNullaryConstructor(c, d), () => getLiteralConstructor(c, d)))
+  const constructors = d.constructors.map(c =>
+    A.foldL(c.members, () => getLiteralNullaryConstructor(c, d), () => getLiteralConstructor(c, d))
+  )
   return A.array.sequence(reader)(constructors)
 }
 
@@ -492,9 +493,9 @@ const getFptsConstructor = (c: M.Constructor, d: M.Data): AST<ts.Node> => {
 }
 
 const getConstructorsFptsEncoding = (d: M.Data): AST<Array<ts.Node>> => {
-  const constructors = d.constructors
-    .toArray()
-    .map(c => A.foldL(c.members, () => getFptsNullaryConstructor(c, d), () => getFptsConstructor(c, d)))
+  const constructors = d.constructors.map(c =>
+    A.foldL(c.members, () => getFptsNullaryConstructor(c, d), () => getFptsConstructor(c, d))
+  )
   return A.array.sequence(reader)(constructors)
 }
 
@@ -505,7 +506,7 @@ export const constructors = (d: M.Data): AST<Array<ts.Node>> => {
 }
 
 const isEagerFoldSupported = (d: M.Data): boolean => {
-  return d.constructors.toArray().some(M.isNullary)
+  return d.constructors.some(M.isNullary)
 }
 
 const getFoldReturnTypeParameterName = (d: M.Data): string => {
@@ -528,7 +529,7 @@ const getFoldPositionalHandlers = (
   usedConstructor?: M.Constructor
 ): Array<ts.ParameterDeclaration> => {
   const returnTypeParameterName = getFoldReturnTypeParameterName(d)
-  return d.constructors.toArray().map(c => {
+  return d.constructors.map(c => {
     const type =
       isEager && M.isNullary(c)
         ? ts.createTypeReferenceNode(returnTypeParameterName, A.empty)
@@ -546,7 +547,7 @@ const getFoldPositionalHandlers = (
 const getFoldRecordHandlers = (d: M.Data, handlersName: string, isEager: boolean): Array<ts.ParameterDeclaration> => {
   const returnTypeParameterName = getFoldReturnTypeParameterName(d)
   const type = ts.createTypeLiteralNode(
-    d.constructors.toArray().map(c => {
+    d.constructors.map(c => {
       const type =
         isEager && M.isNullary(c)
           ? ts.createTypeReferenceNode(returnTypeParameterName, A.empty)
@@ -566,7 +567,7 @@ const getFoldPositionalBody = (d: M.Data, matcheeName: string, tagName: string, 
     ts.createSwitch(
       ts.createPropertyAccess(ts.createIdentifier(matcheeName), tagName),
       ts.createCaseBlock(
-        d.constructors.toArray().map(c => {
+        d.constructors.map(c => {
           const access = ts.createIdentifier(getFoldHandlerName(c))
           return ts.createCaseClause(ts.createStringLiteral(c.name), [
             ts.createReturn(
@@ -592,7 +593,7 @@ const getFoldRecordBody = (d: M.Data, matcheeName: string, tagName: string, hand
     ts.createSwitch(
       ts.createPropertyAccess(ts.createIdentifier(matcheeName), tagName),
       ts.createCaseBlock(
-        d.constructors.toArray().map(c => {
+        d.constructors.map(c => {
           const access = ts.createPropertyAccess(ts.createIdentifier(handlersName), getFoldHandlerName(c))
           return ts.createCaseClause(ts.createStringLiteral(c.name), [
             ts.createReturn(
@@ -694,7 +695,7 @@ export const prisms = (d: M.Data): AST<Array<ts.Node>> => {
     }
     const monocleImport = getImportDeclaration(['Prism'], 'monocle-ts')
     const typeParameters: Array<ts.TypeParameterDeclaration> = getDataTypeParameterDeclarations(d)
-    const constructors = d.constructors.toArray()
+    const constructors = d.constructors
     if (M.isPolymorphic(d)) {
       return reader.of([
         monocleImport,
@@ -723,7 +724,7 @@ const getStrictEquals = (left: ts.Expression, right: ts.Expression): ts.BinaryEx
 
 export const setoid = (d: M.Data): AST<Array<ts.Node>> => {
   const isSum = M.isSum(d)
-  if (!isSum && M.isNullary(d.constructors.head)) {
+  if (!isSum && M.isNullary(head(d.constructors))) {
     return reader.of(A.empty)
   }
   const getMemberSetoidName = (c: M.Constructor, m: M.Member, position: number): string => {
@@ -733,7 +734,7 @@ export const setoid = (d: M.Data): AST<Array<ts.Node>> => {
     }
     return s + getFirstLetterUpperCase(getMemberName(m, position))
   }
-  const constructors = d.constructors.toArray()
+  const constructors = d.constructors
   const setoidsParameters = A.array.chain(constructors, c => {
     return c.members
       .map((m, position) => tuple(m, position))
@@ -778,7 +779,7 @@ export const setoid = (d: M.Data): AST<Array<ts.Node>> => {
     if (isSum) {
       statements.push(...ifs)
     } else {
-      statements.push(ts.createReturn(getReturnValue(d.constructors.head)))
+      statements.push(ts.createReturn(getReturnValue(head(d.constructors))))
     }
     const arrowFunction = getArrowFunction(['x', 'y'], ts.createBlock(statements))
     const setoid = ts.createCall(ts.createIdentifier('fromEquals'), A.empty, [arrowFunction])

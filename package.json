@@ -19,7 +19,8 @@
     "mocha": "mocha -r ts-node/register \"./test/**/*.ts\" --recursive",
     "examples": "rimraf examples/*.ts && ts-node generate-examples.ts && ts-node examples/index.ts",
     "playground": "webpack --config playground/webpack.config.js",
-    "watch-playground": "webpack --config playground/webpack.config.js --watch"
+    "watch-playground": "webpack --config playground/webpack.config.js --watch",
+    "docs": "docs-ts"
   },
   "repository": {
     "type": "git",
@@ -32,7 +33,7 @@
   },
   "homepage": "https://github.com/gcanti/fp-ts-codegen",
   "dependencies": {
-    "fp-ts": "^1.14.1",
+    "fp-ts": "^1.15.0",
     "monocle-ts": "^1.5.3",
     "parser-ts": "^0.5.1",
     "typescript": "^3.2.4"
@@ -43,6 +44,7 @@
     "@types/prismjs": "^1.9.0",
     "@types/react": "^16.7.21",
     "@types/react-dom": "^16.0.11",
+    "docs-ts": "0.0.1",
     "dtslint": "^0.4.2",
     "jest": "^23.6.0",
     "mocha": "^5.2.0",
