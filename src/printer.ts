@@ -3,7 +3,7 @@ import * as Ast from './ast'
 import * as M from './model'
 import { Reader, reader } from 'fp-ts/lib/Reader'
 import * as Mon from 'fp-ts/lib/Monoid'
-import { array } from 'fp-ts/lib/Array'
+import * as A from 'fp-ts/lib/Array'
 
 export interface Printer<A> extends Reader<Ast.Options, A> {}
 
@@ -42,10 +42,10 @@ export const getMonoid = <A>(M: Mon.Monoid<A>): Mon.Monoid<Printer<A>> => {
   }
 }
 
-const monoidPrinter: Mon.Monoid<Printer<Array<string>>> = getMonoid(Mon.getArrayMonoid<string>())
+const monoidPrinter: Mon.Monoid<Printer<Array<string>>> = getMonoid(A.getMonoid<string>())
 
 export const all = (d: M.Data): Printer<Array<string>> => {
-  return Mon.fold(monoidPrinter)([data(d).map(array.of), constructors(d), folds(d), prisms(d), setoid(d)])
+  return Mon.fold(monoidPrinter)([data(d).map(A.array.of), constructors(d), folds(d), prisms(d), setoid(d)])
 }
 
 export const print = (d: M.Data, options: Ast.Options): string => {

@@ -284,9 +284,15 @@ const getDataFptsEncoding = (d: M.Data): AST<Array<ts.Node>> => {
       const getPolymorphicFields = (): Array<ts.PropertyDeclaration> => {
         const URI = getPropertyDeclaration('_URI', ts.createTypeReferenceNode('URI', A.empty), undefined, true)
         const len = getDataParametersLength(d)
-        const fptsParameters = URI2HKTParametersNames.slice(0, len).map(name =>
-          getPropertyDeclaration(`_${name}`, ts.createTypeReferenceNode(name, A.empty), undefined, true)
-        )
+        const parameterDeclarations = d.parameterDeclarations.slice().reverse()
+        const fptsParameters = URI2HKTParametersNames.slice(0, len).map((name, i) => {
+          return getPropertyDeclaration(
+            `_${name}`,
+            ts.createTypeReferenceNode(parameterDeclarations[i].name, A.empty),
+            undefined,
+            true
+          )
+        })
         return [...fptsParameters, URI]
       }
 
@@ -455,7 +461,7 @@ const getLiteralConstructor = (c: M.Constructor, d: M.Data): AST<ts.Node> => {
 
 const getConstructorsLiteralEncoding = (d: M.Data): AST<Array<ts.Node>> => {
   const constructors = d.constructors.map(c =>
-    A.foldL(c.members, () => getLiteralNullaryConstructor(c, d), () => getLiteralConstructor(c, d))
+    A.foldLeft(() => getLiteralNullaryConstructor(c, d), () => getLiteralConstructor(c, d))(c.members)
   )
   return A.array.sequence(reader)(constructors)
 }
@@ -494,7 +500,7 @@ const getFptsConstructor = (c: M.Constructor, d: M.Data): AST<ts.Node> => {
 
 const getConstructorsFptsEncoding = (d: M.Data): AST<Array<ts.Node>> => {
   const constructors = d.constructors.map(c =>
-    A.foldL(c.members, () => getFptsNullaryConstructor(c, d), () => getFptsConstructor(c, d))
+    A.foldLeft(() => getFptsNullaryConstructor(c, d), () => getFptsConstructor(c, d))(c.members)
   )
   return A.array.sequence(reader)(constructors)
 }
@@ -745,8 +751,7 @@ export const setoid = (d: M.Data): AST<Array<ts.Node>> => {
       })
   })
   const getReturnValue = (c: M.Constructor): ts.Expression => {
-    return A.foldL(
-      c.members,
+    return A.foldLeft(
       () => ts.createTrue(),
       () => {
         const callExpressions = c.members.map((m, position) => {
@@ -759,7 +764,7 @@ export const setoid = (d: M.Data): AST<Array<ts.Node>> => {
         })
         return S.fold(semigroupBinaryExpression)(callExpressions[0])(callExpressions.slice(1))
       }
-    )
+    )(c.members)
   }
   return ask<Options>().chain(e => {
     const setoidImport = getImportDeclaration(['Setoid', 'fromEquals'], 'fp-ts/lib/Setoid')

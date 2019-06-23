@@ -22,9 +22,9 @@ describe('printer', () => {
         assertPrinterEqual(
           P.data,
           E.Either,
-          `export type Either<L, R> = {
+          `export type Either<E, R> = {
     readonly type: "Left";
-    readonly value0: L;
+    readonly value0: E;
 } | {
     readonly type: "Right";
     readonly value0: R;
@@ -172,8 +172,8 @@ describe('printer', () => {
           'export function some<A>(value0: A): Option<A> { return { type: "Some", value0 }; }'
         ])
         assertPrinterEqual(P.constructors, E.Either, [
-          'export function left<L, R>(value0: L): Either<L, R> { return { type: "Left", value0 }; }',
-          'export function right<L, R>(value0: R): Either<L, R> { return { type: "Right", value0 }; }'
+          'export function left<E, R>(value0: E): Either<E, R> { return { type: "Left", value0 }; }',
+          'export function right<E, R>(value0: R): Either<E, R> { return { type: "Right", value0 }; }'
         ])
         assertPrinterEqual(P.constructors, E.Tree, [
           'export const leaf: Tree<never> = { type: "Leaf" };',
@@ -250,24 +250,24 @@ export const URI = "Either";
 
 export type URI = typeof URI;
 
-export type Either<L, R> = Left<L, R> | Right<L, R>;
+export type Either<E, R> = Left<E, R> | Right<E, R>;
 
-export class Left<L, R> {
+export class Left<E, R> {
     readonly type: "Left" = "Left";
-    readonly _A!: A;
-    readonly _L!: L;
+    readonly _A!: R;
+    readonly _L!: E;
     readonly _URI!: URI;
-    constructor(readonly value0: L) { }
-    fold<R1>(onLeft: (value0: L) => R1, _onRight: (value0: R) => R1): R1 { return onLeft(this.value0); }
+    constructor(readonly value0: E) { }
+    fold<R1>(onLeft: (value0: E) => R1, _onRight: (value0: R) => R1): R1 { return onLeft(this.value0); }
 }
 
-export class Right<L, R> {
+export class Right<E, R> {
     readonly type: "Right" = "Right";
-    readonly _A!: A;
-    readonly _L!: L;
+    readonly _A!: R;
+    readonly _L!: E;
     readonly _URI!: URI;
     constructor(readonly value0: R) { }
-    fold<R1>(_onLeft: (value0: L) => R1, onRight: (value0: R) => R1): R1 { return onRight(this.value0); }
+    fold<R1>(_onLeft: (value0: E) => R1, onRight: (value0: R) => R1): R1 { return onRight(this.value0); }
 }`,
           fptsEncodingOptions
         )
@@ -398,7 +398,7 @@ export class GotData<A extends string> {
 
     it('should not emit a fold if all constructors are not nullary', () => {
       assertPrinterEqual(P.folds, E.Either, [
-        'export function fold<L, R, R1>(fa: Either<L, R>, onLeft: (value0: L) => R1, onRight: (value0: R) => R1): R1 { switch (fa.type) {\n    case "Left": return onLeft(fa.value0);\n    case "Right": return onRight(fa.value0);\n} }'
+        'export function fold<E, R, R1>(fa: Either<E, R>, onLeft: (value0: E) => R1, onRight: (value0: R) => R1): R1 { switch (fa.type) {\n    case "Left": return onLeft(fa.value0);\n    case "Right": return onRight(fa.value0);\n} }'
       ])
     })
 
