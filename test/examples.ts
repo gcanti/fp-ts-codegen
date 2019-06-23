@@ -14,8 +14,8 @@ export const Maybe = M.data('Maybe', [M.parameterDeclaration('A')], M.constructo
 // data Either L R = Left L | Right R
 export const Either = M.data(
   'Either',
-  [M.parameterDeclaration('L'), M.parameterDeclaration('R')],
-  M.constructor('Left', [M.member(M.ref('L'))]),
+  [M.parameterDeclaration('E'), M.parameterDeclaration('R')],
+  M.constructor('Left', [M.member(M.ref('E'))]),
   [M.constructor('Right', [M.member(M.ref('R'))])]
 )
 

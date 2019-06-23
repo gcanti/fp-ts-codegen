@@ -120,7 +120,7 @@ describe('Haskell parser', () => {
     const parser = P.data
     // type references
     assertSuccess(parser, 'data Option A = None | Some A', E.Option)
-    assertSuccess(parser, 'data Either L R = Left L | Right R', E.Either)
+    assertSuccess(parser, 'data Either E R = Left E | Right R', E.Either)
     assertSuccess(parser, 'data Tree A = Leaf | Node (Tree A) A (Tree A)', E.Tree)
     assertSuccess(parser, 'data User = User { name :: string, surname :: string, age :: number }', E.User)
     // tuples

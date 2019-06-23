@@ -1,4 +1,4 @@
-import { NonEmptyArray, make } from 'fp-ts/lib/NonEmptyArray2v'
+import { NonEmptyArray, cons } from 'fp-ts/lib/NonEmptyArray2v'
 import { Option, none } from 'fp-ts/lib/Option'
 
 export type Identifier = string
@@ -89,7 +89,7 @@ export const data = (
 ): Data => ({
   name,
   parameterDeclarations,
-  constructors: make(head, tail)
+  constructors: cons(head, tail)
 })
 
 export const isNullary = (c: Constructor): boolean => {
