@@ -10,8 +10,12 @@ parent: Modules
 
 - [Constructor (interface)](#constructor-interface)
 - [Data (interface)](#data-interface)
+- [Fun (interface)](#fun-interface)
 - [Member (interface)](#member-interface)
 - [ParameterDeclaration (interface)](#parameterdeclaration-interface)
+- [Ref (interface)](#ref-interface)
+- [Tuple (interface)](#tuple-interface)
+- [Unit (interface)](#unit-interface)
 - [Identifier (type alias)](#identifier-type-alias)
 - [Type (type alias)](#type-type-alias)
 - [unit (constant)](#unit-constant)
@@ -42,6 +46,8 @@ export interface Constructor {
 }
 ```
 
+Added in v0.4.0
+
 # Data (interface)
 
 **Signature**
@@ -54,6 +60,22 @@ export interface Data {
 }
 ```
 
+Added in v0.4.0
+
+# Fun (interface)
+
+**Signature**
+
+```ts
+export interface Fun {
+  readonly kind: 'Fun'
+  readonly domain: Type
+  readonly codomain: Type
+}
+```
+
+Added in v0.4.0
+
 # Member (interface)
 
 **Signature**
@@ -64,6 +86,8 @@ export interface Member {
   readonly name: Option<Identifier>
 }
 ```
+
+Added in v0.4.0
 
 # ParameterDeclaration (interface)
 
@@ -76,6 +100,47 @@ export interface ParameterDeclaration {
 }
 ```
 
+Added in v0.4.0
+
+# Ref (interface)
+
+**Signature**
+
+```ts
+export interface Ref {
+  readonly kind: 'Ref'
+  readonly name: Identifier
+  readonly parameters: Array<Type>
+}
+```
+
+Added in v0.4.0
+
+# Tuple (interface)
+
+**Signature**
+
+```ts
+export interface Tuple {
+  readonly kind: 'Tuple'
+  readonly types: Array<Type>
+}
+```
+
+Added in v0.4.0
+
+# Unit (interface)
+
+**Signature**
+
+```ts
+export interface Unit {
+  readonly kind: 'Unit'
+}
+```
+
+Added in v0.4.0
+
 # Identifier (type alias)
 
 **Signature**
@@ -83,6 +148,8 @@ export interface ParameterDeclaration {
 ```ts
 export type Identifier = string
 ```
+
+Added in v0.4.0
 
 # Type (type alias)
 
@@ -92,6 +159,8 @@ export type Identifier = string
 export type Type = Ref | Tuple | Fun | Unit
 ```
 
+Added in v0.4.0
+
 # unit (constant)
 
 **Signature**
@@ -100,111 +169,138 @@ export type Type = Ref | Tuple | Fun | Unit
 export const unit: Type = ...
 ```
 
+Added in v0.4.0
+
 # constructor (function)
 
 **Signature**
 
 ```ts
-export const constructor = (name: Identifier, members: Array<Member> = []): Constructor => ...
+export function constructor(name: Identifier, members: Array<Member> = []): Constructor { ... }
 ```
+
+Added in v0.4.0
 
 # data (function)
 
 **Signature**
 
 ```ts
-export const data = (
+export function data(
   name: Identifier,
   parameterDeclarations: Array<ParameterDeclaration>,
-  head: Constructor,
-  tail: Array<Constructor> = []
-): Data => ...
+  constructors: NonEmptyArray<Constructor>
+): Data { ... }
 ```
+
+Added in v0.4.0
 
 # fun (function)
 
 **Signature**
 
 ```ts
-export const fun = (domain: Type, codomain: Type): Type => ...
+export function fun(domain: Type, codomain: Type): Type { ... }
 ```
+
+Added in v0.4.0
 
 # isEnum (function)
 
 **Signature**
 
 ```ts
-export const isEnum = (d: Data): boolean => ...
+export function isEnum(d: Data): boolean { ... }
 ```
+
+Added in v0.4.0
 
 # isNullary (function)
 
 **Signature**
 
 ```ts
-export const isNullary = (c: Constructor): boolean => ...
+export function isNullary(c: Constructor): boolean { ... }
 ```
+
+Added in v0.4.0
 
 # isPolymorphic (function)
 
 **Signature**
 
 ```ts
-export const isPolymorphic = (d: Data): boolean => ...
+export function isPolymorphic(d: Data): boolean { ... }
 ```
+
+Added in v0.4.0
 
 # isRecursive (function)
 
 **Signature**
 
 ```ts
-export const isRecursive = (d: Data): boolean => ...
+export function isRecursive(d: Data): boolean { ... }
 ```
+
+Added in v0.4.0
 
 # isRecursiveMember (function)
 
 **Signature**
 
 ```ts
-export const isRecursiveMember = (m: Member, d: Data): boolean => ...
+export function isRecursiveMember(m: Member, d: Data): boolean { ... }
 ```
+
+Added in v0.4.0
 
 # isSum (function)
 
 **Signature**
 
 ```ts
-export const isSum = (d: Data): boolean => ...
+export function isSum(d: Data): boolean { ... }
 ```
+
+Added in v0.4.0
 
 # member (function)
 
 **Signature**
 
 ```ts
-export const member = (type: Type, name: Option<Identifier> = none): Member => ...
+export function member(type: Type, name: Option<Identifier> = none): Member { ... }
 ```
+
+Added in v0.4.0
 
 # parameterDeclaration (function)
 
 **Signature**
 
 ```ts
-export const parameterDeclaration = (name: Identifier, constraint: Option<Type> = none): ParameterDeclaration => ...
+export function parameterDeclaration(name: Identifier, constraint: Option<Type> = none): ParameterDeclaration { ... }
 ```
+
+Added in v0.4.0
 
 # ref (function)
 
 **Signature**
 
 ```ts
-export const ref = (name: Identifier, parameters: Array<Type> = []): Type => ...
+export function ref(name: Identifier, parameters: Array<Type> = []): Type { ... }
 ```
+
+Added in v0.4.0
 
 # tuple (function)
 
 **Signature**
 
 ```ts
-export const tuple = (types: Array<Type>): Type => ...
+export function tuple(types: Array<Type>): Type { ... }
 ```
+
+Added in v0.4.0

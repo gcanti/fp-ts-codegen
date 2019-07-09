@@ -52,23 +52,14 @@ export function some<A>(value0: A): Option<A> {
 
 /** pattern matching */
 
-//                                       eager ---v
-export function fold<A, R>(fa: Option<A>, onNone: R, onSome: (value0: A) => R): R {
-  switch (fa.type) {
-    case 'None':
-      return onNone
-    case 'Some':
-      return onSome(fa.value0)
-  }
-}
-
-//                                         lazy ---v
-export function foldL<A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) => R): R {
-  switch (fa.type) {
-    case 'None':
-      return onNone()
-    case 'Some':
-      return onSome(fa.value0)
+export function fold<A, R>(onNone: () => R, onSome: (value0: A) => R): (fa: Option<A>) => R {
+  return fa => {
+    switch (fa.type) {
+      case 'None':
+        return onNone()
+      case 'Some':
+        return onSome(fa.value0)
+    }
   }
 }
 
@@ -84,11 +75,11 @@ export function _some<A>(): Prism<Option<A>, Option<A>> {
   return Prism.fromPredicate(s => s.type === 'Some')
 }
 
-/** Setoid instance */
+/** Eq instance */
 
-import { Setoid } from 'fp-ts/lib/Setoid'
+import { Eq } from 'fp-ts/lib/Eq'
 
-export function getSetoid<A>(setoidSomeValue0: Setoid<A>): Setoid<Option<A>> {
+export function getEq<A>(eqSomeValue0: Eq<A>): Eq<Option<A>> {
   return {
     equals: (x, y) => {
       if (x === y) {
@@ -98,7 +89,7 @@ export function getSetoid<A>(setoidSomeValue0: Setoid<A>): Setoid<Option<A>> {
         return true
       }
       if (x.type === 'Some' && y.type === 'Some') {
-        return setoidSomeValue0.equals(x.value0, y.value0)
+        return eqSomeValue0.equals(x.value0, y.value0)
       }
       return false
     }
@@ -185,75 +176,6 @@ export type Constrained<A extends string> =
     }
 ```
 
-# `fp-ts` encoding
-
-Example
-
-Source
-
-```haskell
-data Option A = None | Some A
-```
-
-Output
-
-```ts
-declare module 'fp-ts/lib/HKT' {
-  interface URI2HKT<A> {
-    Option: Option<A>
-  }
-}
-
-export const URI = 'Option'
-
-export type URI = typeof URI
-
-export type Option<A> = None<A> | Some<A>
-
-export class None<A> {
-  static value: Option<never> = new None()
-  readonly _tag: 'None' = 'None'
-  readonly _A!: A
-  readonly _URI!: URI
-  private constructor() {}
-  fold<R>(onNone: R, _onSome: (value0: A) => R): R {
-    return onNone
-  }
-  foldL<R>(onNone: () => R, _onSome: (value0: A) => R): R {
-    return onNone()
-  }
-}
-
-export class Some<A> {
-  readonly _tag: 'Some' = 'Some'
-  readonly _A!: A
-  readonly _URI!: URI
-  constructor(readonly value0: A) {}
-  fold<R>(_onNone: R, onSome: (value0: A) => R): R {
-    return onSome(this.value0)
-  }
-  foldL<R>(_onNone: () => R, onSome: (value0: A) => R): R {
-    return onSome(this.value0)
-  }
-}
-
-export const none: Option<never> = None.value
-
-export function some<A>(value0: A): Option<A> {
-  return new Some(value0)
-}
-
-import { Prism } from 'monocle-ts'
-
-export function _none<A>(): Prism<Option<A>, Option<A>> {
-  return Prism.fromPredicate(s => s.type === 'None')
-}
-
-export function _some<A>(): Prism<Option<A>, Option<A>> {
-  return Prism.fromPredicate(s => s.type === 'Some')
-}
-```
-
 # Options
 
 ```ts
@@ -264,22 +186,17 @@ export interface Options {
   tagName: string
   /** the name prefix used for pattern matching functions */
   foldName: string
-  /** the name used for the input of pattern matching functions */
-  matcheeName: string
   /**
    * the pattern matching handlers can be expressed as positional arguments
    * or a single object literal `tag -> handler`
    */
   handlersStyle: { type: 'positional' } | { type: 'record'; handlersName: string }
-  encoding: 'literal' | 'fp-ts'
 }
 
 export const defaultOptions: Options = {
-  tagName: 'type',
+  tagName: '_tag',
   foldName: 'fold',
-  matcheeName: 'fa',
-  handlersStyle: { type: 'positional' },
-  encoding: 'literal'
+  handlersStyle: { type: 'positional' }
 }
 ```
 
@@ -295,7 +212,6 @@ lenses.tagName.set('tag')(defaultOptions)
 {
   tagName: 'tag',
   foldName: 'fold',
-  matcheeName: 'fa',
   ...
 }
 */

@@ -14,9 +14,9 @@ parent: Modules
 - [lenses (constant)](#lenses-constant)
 - [constructors (function)](#constructors-function)
 - [data (function)](#data-function)
-- [folds (function)](#folds-function)
+- [eq (function)](#eq-function)
+- [fold (function)](#fold-function)
 - [prisms (function)](#prisms-function)
-- [setoid (function)](#setoid-function)
 
 ---
 
@@ -25,8 +25,10 @@ parent: Modules
 **Signature**
 
 ```ts
-export interface AST<A> extends Reader<Options, A> {}
+export interface AST<A> extends R.Reader<Options, A> {}
 ```
+
+Added in v0.4.0
 
 # Options (interface)
 
@@ -38,16 +40,15 @@ export interface Options {
   tagName: string
   /** the name prefix used for pattern matching functions */
   foldName: string
-  /** the name used for the input of pattern matching functions */
-  matcheeName: string
   /**
    * the pattern matching handlers can be expressed as positional arguments
    * or a single object literal `tag -> handler`
    */
   handlersStyle: { type: 'positional' } | { type: 'record'; handlersName: string }
-  encoding: 'literal' | 'fp-ts'
 }
 ```
+
+Added in v0.4.0
 
 # defaultOptions (constant)
 
@@ -57,6 +58,8 @@ export interface Options {
 export const defaultOptions: Options = ...
 ```
 
+Added in v0.4.0
+
 # lenses (constant)
 
 **Signature**
@@ -65,42 +68,54 @@ export const defaultOptions: Options = ...
 export const lenses: { [K in keyof Options]: Lens<Options, Options[K]> } = ...
 ```
 
+Added in v0.4.0
+
 # constructors (function)
 
 **Signature**
 
 ```ts
-export const constructors = (d: M.Data): AST<Array<ts.Node>> => ...
+export function constructors(d: M.Data): AST<Array<ts.Node>> { ... }
 ```
+
+Added in v0.4.0
 
 # data (function)
 
 **Signature**
 
 ```ts
-export const data = (d: M.Data): AST<Array<ts.Node>> => ...
+export function data(d: M.Data): AST<Array<ts.Node>> { ... }
 ```
 
-# folds (function)
+Added in v0.4.0
+
+# eq (function)
 
 **Signature**
 
 ```ts
-export const folds = (d: M.Data): AST<Array<ts.FunctionDeclaration>> => ...
+export function eq(d: M.Data): AST<Array<ts.Node>> { ... }
 ```
+
+Added in v0.4.0
+
+# fold (function)
+
+**Signature**
+
+```ts
+export function fold(d: M.Data): AST<O.Option<ts.FunctionDeclaration>> { ... }
+```
+
+Added in v0.4.0
 
 # prisms (function)
 
 **Signature**
 
 ```ts
-export const prisms = (d: M.Data): AST<Array<ts.Node>> => ...
+export function prisms(d: M.Data): AST<Array<ts.Node>> { ... }
 ```
 
-# setoid (function)
-
-**Signature**
-
-```ts
-export const setoid = (d: M.Data): AST<Array<ts.Node>> => ...
-```
+Added in v0.4.0

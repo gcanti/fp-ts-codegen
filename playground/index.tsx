@@ -1,17 +1,18 @@
-import * as React from 'react'
-import * as ReactDOM from 'react-dom'
-import { run } from '../src'
-import { Options, lenses, defaultOptions } from '../src/ast'
-import Editor from 'react-simple-code-editor'
+import * as E from 'fp-ts/lib/Either'
+import { pipe } from 'fp-ts/lib/pipeable'
 import { highlight, languages } from 'prismjs'
 import 'prismjs/components/prism-typescript'
+import * as React from 'react'
+import * as ReactDOM from 'react-dom'
+import Editor from 'react-simple-code-editor'
 import * as pkg from '../package.json'
+import { run } from '../src'
+import { defaultOptions, lenses, Options } from '../src/ast'
 
 const defaultSource = 'data Option A = None | Some A'
 
 interface Props {
   source: string
-  encoding: Options['encoding']
   handlersStyle: Options['handlersStyle']
 }
 
@@ -19,20 +20,22 @@ interface State extends Props {
   code: string
 }
 
-const getState = (source: string, encoding: Options['encoding'], handlersStyle: Options['handlersStyle']): State => {
-  const options = lenses.handlersStyle.set(handlersStyle)(lenses.encoding.set(encoding)(defaultOptions))
+const getState = (source: string, handlersStyle: Options['handlersStyle']): State => {
+  const options = lenses.handlersStyle.set(handlersStyle)(defaultOptions)
   return {
     source,
-    encoding,
     handlersStyle,
-    code: run(source, options).getOrElseL(e => `/** Error: ${e} */`)
+    code: pipe(
+      run(source, options),
+      E.getOrElse(e => `/*\n${e}\n*/`)
+    )
   }
 }
 
 class App extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props)
-    this.state = getState(props.source, props.encoding, props.handlersStyle)
+    this.state = getState(props.source, props.handlersStyle)
   }
 
   render() {
@@ -40,24 +43,17 @@ class App extends React.Component<Props, State> {
       console.log(code)
     }
     const onCodeChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      this.setState(getState(e.currentTarget.value, this.state.encoding, this.state.handlersStyle))
-    }
-    const onEncodingChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (e.currentTarget.checked) {
-        this.setState(getState(this.state.source, 'fp-ts', this.state.handlersStyle))
-      } else {
-        this.setState(getState(this.state.source, 'literal', this.state.handlersStyle))
-      }
+      this.setState(getState(e.currentTarget.value, this.state.handlersStyle))
     }
     const onHandlersStyleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.currentTarget.checked) {
-        this.setState(getState(this.state.source, this.state.encoding, { type: 'record', handlersName: 'handlers' }))
+        this.setState(getState(this.state.source, { type: 'record', handlersName: 'handlers' }))
       } else {
-        this.setState(getState(this.state.source, this.state.encoding, { type: 'positional' }))
+        this.setState(getState(this.state.source, { type: 'positional' }))
       }
     }
     const onExampleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-      this.setState(getState(e.currentTarget.value, this.state.encoding, this.state.handlersStyle))
+      this.setState(getState(e.currentTarget.value, this.state.handlersStyle))
     }
     return (
       <div>
@@ -75,8 +71,6 @@ class App extends React.Component<Props, State> {
             <tr>
               <td className="source">
                 <textarea rows={10} value={this.state.source} onChange={onCodeChange} />
-                <input type="checkbox" onChange={onEncodingChange} /> fp-ts encoding
-                <br />
                 <input type="checkbox" onChange={onHandlersStyleChange} /> fold handlers style:{' '}
                 {this.state.handlersStyle.type}
                 <br />
@@ -116,7 +110,4 @@ class App extends React.Component<Props, State> {
   }
 }
 
-ReactDOM.render(
-  <App source={defaultSource} encoding="literal" handlersStyle={{ type: 'positional' }} />,
-  document.getElementById('main')
-)
+ReactDOM.render(<App source={defaultSource} handlersStyle={{ type: 'positional' }} />, document.getElementById('main'))

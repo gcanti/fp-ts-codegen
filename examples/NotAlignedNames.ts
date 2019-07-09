@@ -4,7 +4,9 @@ export type NotAlignedNames = {
 
 export function ctor(value: string): NotAlignedNames { return { value }; }
 
-import { Setoid, fromEquals } from "fp-ts/lib/Setoid";
 
-export function getSetoid(setoidValue: Setoid<string>): Setoid<NotAlignedNames> { return fromEquals((x, y) => { return setoidValue.equals(x.value, y.value); }); }
+
+import { Eq, fromEquals } from "fp-ts/lib/Eq";
+
+export function getEq(eqValue: Eq<string>): Eq<NotAlignedNames> { return fromEquals((x, y) => { return eqValue.equals(x.value, y.value); }); }
 

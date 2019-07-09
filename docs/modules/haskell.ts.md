@@ -26,32 +26,40 @@ parent: Modules
 **Signature**
 
 ```ts
-export const constructor: P.Parser<M.Constructor> = ...
+export const constructor: P.Parser<C.Char, M.Constructor> = ...
 ```
+
+Added in v0.4.0
 
 # data (constant)
 
 **Signature**
 
 ```ts
-export const data: P.Parser<M.Data> = ...
+export const data: P.Parser<C.Char, M.Data> = ...
 ```
+
+Added in v0.4.0
 
 # fun (constant)
 
 **Signature**
 
 ```ts
-export const fun: P.Parser<M.Type> = ...
+export const fun: P.Parser<C.Char, M.Type> = ...
 ```
+
+Added in v0.4.0
 
 # identifier (constant)
 
 **Signature**
 
 ```ts
-export const identifier: P.Parser<string> = ...
+export const identifier: P.Parser<C.Char, string> = ...
 ```
+
+Added in v0.4.0
 
 # parameterDeclaration (constant)
 
@@ -66,37 +74,47 @@ export const parameterDeclaration = ...
 **Signature**
 
 ```ts
-export const ref: P.Parser<M.Type> = ...
+export const ref: P.Parser<C.Char, M.Type> = ...
 ```
+
+Added in v0.4.0
 
 # tuple (constant)
 
 **Signature**
 
 ```ts
-export const tuple: P.Parser<M.Type> = ...
+export const tuple: P.Parser<C.Char, M.Type> = ...
 ```
+
+Added in v0.4.0
 
 # type (constant)
 
 **Signature**
 
 ```ts
-export const type: P.Parser<M.Type> = ...
+export const type: P.Parser<C.Char, M.Type> = ...
 ```
+
+Added in v0.4.0
 
 # types (constant)
 
 **Signature**
 
 ```ts
-export const types: P.Parser<Array<M.Type>> = ...
+export const types: P.Parser<C.Char, Array<M.Type>> = ...
 ```
+
+Added in v0.4.0
 
 # parse (function)
 
 **Signature**
 
 ```ts
-export const parse = (s: string): Either<string, M.Data> => ...
+export function parse(s: string): Either<string, M.Data> { ... }
 ```
+
+Added in v0.4.0
