@@ -8,6 +8,6 @@ export const assertPrinterEqual = <A, B>(
   expected: B,
   options: Options = defaultOptions
 ) => {
-  const actual = f(a).run(options)
+  const actual = f(a)(options)
   assert.deepStrictEqual(actual, expected)
 }

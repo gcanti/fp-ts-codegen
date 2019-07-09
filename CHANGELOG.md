@@ -13,6 +13,15 @@
 **Note**: Gaps between patch versions are faulty/broken releases.
 **Note**: A feature tagged as Experimental is in a high state of flux, you're at risk of it changing without notice.
 
+# 0.4.0
+
+- **Breaking Change**
+  - upgrade to `fp-ts@2.x`, `monocle-ts@2.x`, `parser-ts@0.6.x` (@gcanti)
+  - options
+    - remove encoding (@gcanti)
+    - remove matcheeName (@gcanti)
+  - make generated `fold` always lazy and data-last (@gcanti)
+
 # 0.3.1
 
 - **Bug Fix**

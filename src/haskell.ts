@@ -1,135 +1,257 @@
-import * as P from 'parser-ts'
-import * as S from 'parser-ts/lib/string'
-import * as C from 'parser-ts/lib/char'
+import { parser as P, string as S, char as C } from 'parser-ts'
 import * as M from './model'
 import { Either } from 'fp-ts/lib/Either'
 import { some } from 'fp-ts/lib/Option'
+import { pipe } from 'fp-ts/lib/pipeable'
+import { run } from 'parser-ts/lib/code-frame'
 
 const isDigit = (c: string): boolean => '0123456789'.indexOf(c) !== -1
 
 const isPunctuation = (c: string): boolean => '| =\n():,{};[]->'.indexOf(c) !== -1
 
-const identifierFirstLetter = P.sat(c => !isDigit(c) && !isPunctuation(c))
+const identifierFirstLetter = P.sat<C.Char>(c => !isDigit(c) && !isPunctuation(c))
 
-const identifierBody = P.sat(c => !isPunctuation(c))
+const identifierBody = P.sat<C.Char>(c => !isPunctuation(c))
 
-const expected = <A>(message: string, parser: P.Parser<A>): P.Parser<A> =>
-  P.expectedL(parser, remaining => `Expected ${message}, cannot parse ${JSON.stringify(remaining)}`)
-
-export const identifier: P.Parser<string> = expected(
-  'an identifier',
-  P.fold([identifierFirstLetter, C.many(identifierBody)])
+/**
+ * @since 0.4.0
+ */
+export const identifier: P.Parser<C.Char, string> = P.expected(
+  S.fold([identifierFirstLetter, C.many(identifierBody)]),
+  'an identifier'
 )
 
-const leftParens: P.Parser<string> = P.fold([C.char('('), S.spaces])
+const leftParens: P.Parser<C.Char, string> = S.fold([C.char('('), S.spaces])
 
-const rightParens: P.Parser<string> = P.fold([S.spaces, C.char(')')])
+const rightParens: P.Parser<C.Char, string> = S.fold([S.spaces, C.char(')')])
 
-const withParens = <A>(parser: P.Parser<A>): P.Parser<A> => {
-  return leftParens.applySecond(parser).applyFirst(rightParens)
+const withParens = <A>(parser: P.Parser<C.Char, A>): P.Parser<C.Char, A> => {
+  return pipe(
+    leftParens,
+    P.apSecond(parser),
+    P.apFirst(rightParens)
+  )
 }
 
-const unparametrizedRef: P.Parser<M.Type> = identifier.map(name => M.ref(name))
-
-export const ref: P.Parser<M.Type> = identifier.chain(name =>
-  S.spaces.applySecond(types.map(parameters => M.ref(name, parameters)))
+const unparametrizedRef: P.Parser<C.Char, M.Type> = pipe(
+  identifier,
+  P.map(name => M.ref(name))
 )
 
-const comma = P.fold([S.spaces, C.char(','), S.spaces])
-
-export const tuple: P.Parser<M.Type> = expected(
-  'a tuple',
-  leftParens
-    .chain(() =>
-      P.sepBy(comma, type).map(types => {
-        switch (types.length) {
-          case 0:
-            return M.unit
-          case 1:
-            return types[0]
-          default:
-            return M.tuple(types)
-        }
-      })
-    )
-    .applyFirst(rightParens)
-)
-
-const arrow = P.fold([S.spaces, S.string('->'), S.spaces])
-
-export const fun: P.Parser<M.Type> = expected(
-  'a function type',
-  S.spaces.chain(() => ref.alt(tuple).chain(domain => arrow.applySecond(type).map(codomain => M.fun(domain, codomain))))
-)
-
-export const type: P.Parser<M.Type> = fun.alt(ref).alt(tuple)
-
-export const types: P.Parser<Array<M.Type>> = P.sepBy(
-  S.spaces,
-  fun
-    .alt(unparametrizedRef)
-    .alt(withParens(ref))
-    .alt(tuple)
-)
-
-const pair: P.Parser<{ name: string; type: M.Type }> = identifier.chain(name =>
-  P.fold([S.spaces, S.string('::'), S.spaces])
-    .applySecond(type)
-    .map(type => ({ name, type }))
-)
-
-const pairs: P.Parser<Array<{ name: string; type: M.Type }>> = P.fold([C.char('{'), S.spaces])
-  .applySecond(P.sepBy(comma, pair))
-  .applyFirst(P.fold([S.spaces, C.char('}')]))
-
-const recordConstructor: P.Parser<M.Constructor> = identifier.chain(name =>
-  S.spaces.applySecond(
-    pairs.map(pairs => M.constructor(name, pairs.map(({ name, type }) => M.member(type, some(name)))))
-  )
-)
-
-const positionalConstructor: P.Parser<M.Constructor> = identifier.chain(name =>
-  S.spaces.applySecond(types.map(types => M.constructor(name, types.map(type => M.member(type)))))
-)
-
-export const constructor: P.Parser<M.Constructor> = recordConstructor.alt(positionalConstructor)
-
-const equal = P.fold([S.spaces, C.char('='), S.spaces])
-
-const unconstrainedParameterDeclaration: P.Parser<M.ParameterDeclaration> = identifier.map(name =>
-  M.parameterDeclaration(name)
-)
-
-const constrainedParameterDeclaration: P.Parser<M.ParameterDeclaration> = P.fold([C.char('('), S.spaces]).applySecond(
-  pair.map(({ name, type }) => M.parameterDeclaration(name, some(type))).applyFirst(P.fold([S.spaces, C.char(')')]))
-)
-
-export const parameterDeclaration = expected(
-  'a parameter',
-  unconstrainedParameterDeclaration.alt(constrainedParameterDeclaration)
-)
-
-const pipe = P.fold([S.spaces, C.char('|'), S.spaces])
-
-export const data: P.Parser<M.Data> = expected(
-  'a data declaration',
-  S.string('data').chain(() =>
-    S.spaces.applySecond(
-      identifier.chain(name =>
-        S.spaces
-          .applySecond(P.sepBy(S.spaces, parameterDeclaration))
-          .applyFirst(equal)
-          .chain(typeParameters =>
-            P.sepBy1(pipe, constructor)
-              .map(constructors => M.data(name, typeParameters, constructors.head, constructors.tail))
-              .applyFirst(S.spaces)
-              .applyFirst(P.eof)
-          )
+/**
+ * @since 0.4.0
+ */
+export const ref: P.Parser<C.Char, M.Type> = pipe(
+  identifier,
+  P.chain(name =>
+    pipe(
+      S.spaces,
+      P.apSecond(
+        pipe(
+          types,
+          P.map(parameters => M.ref(name, parameters))
+        )
       )
     )
   )
 )
 
-export const parse = (s: string): Either<string, M.Data> => {
-  return data.run(s).bimap(e => e.message, ([data]) => data)
+const comma = S.fold([S.spaces, C.char(','), S.spaces])
+
+/**
+ * @since 0.4.0
+ */
+export const tuple: P.Parser<C.Char, M.Type> = P.expected(
+  pipe(
+    leftParens,
+    P.chain(() =>
+      pipe(
+        P.sepBy(comma, type),
+        P.map(types => {
+          switch (types.length) {
+            case 0:
+              return M.unit
+            case 1:
+              return types[0]
+            default:
+              return M.tuple(types)
+          }
+        })
+      )
+    ),
+    P.apFirst(rightParens)
+  ),
+  'a tuple'
+)
+
+const arrow = S.fold([S.spaces, S.string('->'), S.spaces])
+
+/**
+ * @since 0.4.0
+ */
+export const fun: P.Parser<C.Char, M.Type> = P.expected(
+  pipe(
+    S.spaces,
+    P.chain(() =>
+      pipe(
+        ref,
+        P.alt(() => tuple),
+        P.chain(domain =>
+          pipe(
+            arrow,
+            P.apSecond(type),
+            P.map(codomain => M.fun(domain, codomain))
+          )
+        )
+      )
+    )
+  ),
+  'a function type'
+)
+
+/**
+ * @since 0.4.0
+ */
+export const type: P.Parser<C.Char, M.Type> = pipe(
+  fun,
+  P.alt(() => ref),
+  P.alt(() => tuple)
+)
+
+/**
+ * @since 0.4.0
+ */
+export const types: P.Parser<C.Char, Array<M.Type>> = P.sepBy(
+  S.spaces,
+  pipe(
+    fun,
+    P.alt(() => unparametrizedRef),
+    P.alt(() => withParens(ref)),
+    P.alt(() => tuple)
+  )
+)
+
+const pair: P.Parser<C.Char, { name: string; type: M.Type }> = pipe(
+  identifier,
+  P.chain(name =>
+    pipe(
+      S.fold([S.spaces, S.string('::'), S.spaces]),
+      P.apSecond(type),
+      P.map(type => ({ name, type }))
+    )
+  )
+)
+
+const pairs: P.Parser<C.Char, Array<{ name: string; type: M.Type }>> = pipe(
+  S.fold([C.char('{'), S.spaces]),
+  P.apSecond(P.sepBy(comma, pair)),
+  P.apFirst(S.fold([S.spaces, C.char('}')]))
+)
+
+const recordConstructor: P.Parser<C.Char, M.Constructor> = pipe(
+  identifier,
+  P.chain(name =>
+    pipe(
+      S.spaces,
+      P.apSecond(
+        pipe(
+          pairs,
+          P.map(pairs => M.constructor(name, pairs.map(({ name, type }) => M.member(type, some(name)))))
+        )
+      )
+    )
+  )
+)
+
+const positionalConstructor: P.Parser<C.Char, M.Constructor> = pipe(
+  identifier,
+  P.chain(name =>
+    pipe(
+      S.spaces,
+      P.apSecond(
+        pipe(
+          types,
+          P.map(types => M.constructor(name, types.map(type => M.member(type))))
+        )
+      )
+    )
+  )
+)
+
+/**
+ * @since 0.4.0
+ */
+export const constructor: P.Parser<C.Char, M.Constructor> = pipe(
+  recordConstructor,
+  P.alt(() => positionalConstructor)
+)
+
+const equal = S.fold([S.spaces, C.char('='), S.spaces])
+
+const unconstrainedParameterDeclaration: P.Parser<C.Char, M.ParameterDeclaration> = pipe(
+  identifier,
+  P.map(name => M.parameterDeclaration(name))
+)
+
+const constrainedParameterDeclaration: P.Parser<C.Char, M.ParameterDeclaration> = pipe(
+  S.fold([C.char('('), S.spaces]),
+  P.apSecond(
+    pipe(
+      pair,
+      P.map(({ name, type }) => M.parameterDeclaration(name, some(type))),
+      P.apFirst(S.fold([S.spaces, C.char(')')]))
+    )
+  )
+)
+
+export const parameterDeclaration = P.expected(
+  pipe(
+    unconstrainedParameterDeclaration,
+    P.alt(() => constrainedParameterDeclaration)
+  ),
+  'a parameter'
+)
+
+const pipeParser = S.fold([S.spaces, C.char('|'), S.spaces])
+
+/**
+ * @since 0.4.0
+ */
+export const data: P.Parser<C.Char, M.Data> = P.expected(
+  pipe(
+    S.string('data'),
+    P.chain(() =>
+      pipe(
+        S.spaces,
+        P.apSecond(
+          pipe(
+            identifier,
+            P.chain(name =>
+              pipe(
+                S.spaces,
+                P.apSecond(P.sepBy(S.spaces, parameterDeclaration)),
+                P.apFirst(equal),
+                P.chain(typeParameters =>
+                  pipe(
+                    P.sepBy1(pipeParser, constructor),
+                    P.map(constructors => M.data(name, typeParameters, constructors)),
+                    P.apFirst(S.spaces),
+                    P.apFirst(P.eof())
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+  ),
+  'a data declaration'
+)
+
+/**
+ * @since 0.4.0
+ */
+export function parse(s: string): Either<string, M.Data> {
+  return run(data, s)
 }

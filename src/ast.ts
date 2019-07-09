@@ -1,62 +1,71 @@
-import { none, Option, some } from 'fp-ts/lib/Option'
-import { Reader, reader, ask } from 'fp-ts/lib/Reader'
+import * as O from 'fp-ts/lib/Option'
+import * as R from 'fp-ts/lib/Reader'
 import * as ts from 'typescript'
 import * as M from './model'
 import { Lens } from 'monocle-ts'
 import { tuple } from 'fp-ts/lib/function'
 import * as S from 'fp-ts/lib/Semigroup'
 import * as A from 'fp-ts/lib/Array'
-import { head } from 'fp-ts/lib/NonEmptyArray2v'
+import { head } from 'fp-ts/lib/NonEmptyArray'
+import { pipe } from 'fp-ts/lib/pipeable'
 
+/**
+ * @since 0.4.0
+ */
 export interface Options {
   /** the name of the field used as tag */
   tagName: string
   /** the name prefix used for pattern matching functions */
   foldName: string
-  /** the name used for the input of pattern matching functions */
-  matcheeName: string
   /**
    * the pattern matching handlers can be expressed as positional arguments
    * or a single object literal `tag -> handler`
    */
   handlersStyle: { type: 'positional' } | { type: 'record'; handlersName: string }
-  encoding: 'literal' | 'fp-ts'
 }
 
+/**
+ * @since 0.4.0
+ */
 export const defaultOptions: Options = {
   tagName: 'type',
   foldName: 'fold',
-  matcheeName: 'fa',
-  handlersStyle: { type: 'positional' },
-  encoding: 'literal'
+  handlersStyle: { type: 'positional' }
 }
 
 const getLens = Lens.fromProp<Options>()
 
+/**
+ * @since 0.4.0
+ */
 export const lenses: { [K in keyof Options]: Lens<Options, Options[K]> } = {
   tagName: getLens('tagName'),
   foldName: getLens('foldName'),
-  matcheeName: getLens('matcheeName'),
-  handlersStyle: getLens('handlersStyle'),
-  encoding: getLens('encoding')
+  handlersStyle: getLens('handlersStyle')
 }
 
-export interface AST<A> extends Reader<Options, A> {}
+/**
+ * @since 0.4.0
+ */
+export interface AST<A> extends R.Reader<Options, A> {}
 
 const getMemberName = (m: M.Member, position: number): string => {
-  return m.name.getOrElseL(() => `value${position}`)
+  return pipe(
+    m.name,
+    O.getOrElse(() => `value${position}`)
+  )
 }
 
-const getDomainParameterName = (type: M.Type): Option<string> => {
+const getDomainParameterName = (type: M.Type): O.Option<string> => {
   switch (type.kind) {
     case 'Ref':
-      return some(getFirstLetterLowerCase(type.name))
+      return O.some(getFirstLetterLowerCase(type.name))
     case 'Tuple':
-      return some('tuple')
+      return O.some('tuple')
     case 'Fun':
-      return some('f')
+      return O.some('f')
     case 'Unit':
-      return none
+      return O.none
   }
 }
 
@@ -69,29 +78,16 @@ const getTypeNode = (type: M.Type): ts.TypeNode => {
     case 'Fun':
       return ts.createFunctionTypeNode(
         undefined,
-        getDomainParameterName(type.domain)
-          .map(domainName => [getParameterDeclaration(domainName, getTypeNode(type.domain))])
-          .getOrElse(A.empty),
+        pipe(
+          getDomainParameterName(type.domain),
+          O.map(domainName => [getParameterDeclaration(domainName, getTypeNode(type.domain))]),
+          O.getOrElse<Array<ts.ParameterDeclaration>>(() => A.empty)
+        ),
         getTypeNode(type.codomain)
       )
     case 'Unit':
       return ts.createTypeReferenceNode('undefined', A.empty)
   }
-}
-
-const getDataLiteralEncoding = (d: M.Data): AST<Array<ts.Node>> => {
-  return new Reader(e => {
-    const unionType = ts.createUnionTypeNode(
-      d.constructors.map(c => {
-        const members: Array<ts.TypeElement> = c.members.map((m, position) => {
-          return getPropertySignature(getMemberName(m, position), getTypeNode(m.type))
-        })
-        const tag: ts.TypeElement = getPropertySignature(e.tagName, ts.createLiteralTypeNode(ts.createLiteral(c.name)))
-        return ts.createTypeLiteralNode(M.isSum(d) ? [tag, ...members] : members)
-      })
-    )
-    return [getTypeAliasDeclaration(d.name, unionType, getDataTypeParameterDeclarations(d))]
-  })
 }
 
 const getTypeAliasDeclaration = (
@@ -108,52 +104,39 @@ const getTypeAliasDeclaration = (
   )
 }
 
-/**
- * @example
- * Constrained<A extends string>
- */
 const getDataTypeParameterDeclarations = (d: M.Data): Array<ts.TypeParameterDeclaration> => {
   return d.parameterDeclarations.map(p =>
-    ts.createTypeParameterDeclaration(p.name, p.constraint.map(getTypeNode).toUndefined())
-  )
-}
-
-/**
- * @example
- * Either<never, never>
- */
-const getDataTypeReferenceWithNever = (d: M.Data): ts.TypeReferenceNode => {
-  return ts.createTypeReferenceNode(
-    d.name,
-    d.parameterDeclarations.map(p =>
-      p.constraint.map(c => getTypeNode(c)).getOrElse(ts.createKeywordTypeNode(ts.SyntaxKind.NeverKeyword))
+    ts.createTypeParameterDeclaration(
+      p.name,
+      pipe(
+        p.constraint,
+        O.map(getTypeNode),
+        O.toUndefined
+      )
     )
   )
 }
 
-/**
- * @example
- * <L, R> in Either<L, R>
- */
+const getDataTypeReferenceWithNever = (d: M.Data): ts.TypeReferenceNode => {
+  return ts.createTypeReferenceNode(
+    d.name,
+    d.parameterDeclarations.map(p =>
+      pipe(
+        p.constraint,
+        O.map(c => getTypeNode(c)),
+        O.getOrElse<ts.TypeNode>(() => ts.createKeywordTypeNode(ts.SyntaxKind.NeverKeyword))
+      )
+    )
+  )
+}
+
 const getDataTypeParameterReferences = (d: M.Data): Array<ts.TypeReferenceNode> => {
   return d.parameterDeclarations.map(p => ts.createTypeReferenceNode(p.name, A.empty))
 }
 
-/**
- * @example
- * Either<L, A>
- */
 const getDataType = (d: M.Data): ts.TypeReferenceNode => {
   return ts.createTypeReferenceNode(d.name, getDataTypeParameterReferences(d))
 }
-
-const URI2HKTNames: Record<number, string> = {
-  1: 'URI2HKT',
-  2: 'URI2HKT2',
-  3: 'URI2HKT3',
-  4: 'URI2HKT4'
-}
-const URI2HKTParametersNames = ['A', 'L', 'U', 'X']
 
 const getPropertySignature = (name: string, type: ts.TypeNode, isReadonly: boolean = true): ts.PropertySignature => {
   return ts.createPropertySignature(
@@ -165,207 +148,22 @@ const getPropertySignature = (name: string, type: ts.TypeNode, isReadonly: boole
   )
 }
 
-const getInterfaceDeclaration = (
-  name: string,
-  typeParameters: Array<ts.TypeParameterDeclaration>,
-  members: Array<ts.TypeElement>
-): ts.InterfaceDeclaration => {
-  return ts.createInterfaceDeclaration(undefined, undefined, name, typeParameters, undefined, members)
-}
-
-const getDataModuleDeclaration = (d: M.Data): ts.ModuleDeclaration => {
-  const len = getDataParametersLength(d)
-  const URI2HKT = URI2HKTNames[len]
-  const parameters = URI2HKTParametersNames.slice(0, len).reverse()
-
-  return ts.createModuleDeclaration(
-    undefined,
-    [ts.createModifier(ts.SyntaxKind.DeclareKeyword)],
-    ts.createStringLiteral('fp-ts/lib/HKT'),
-    ts.createModuleBlock([
-      getInterfaceDeclaration(URI2HKT, parameters.map(p => ts.createTypeParameterDeclaration(p)), [
-        getPropertySignature(
-          d.name,
-          ts.createTypeReferenceNode(d.name, parameters.map(p => ts.createTypeReferenceNode(p, A.empty))),
-          false
-        )
-      ])
-    ]),
-    undefined
-  )
-}
-
-const getPropertyDeclaration = (
-  name: string,
-  type: ts.TypeNode,
-  inizializer?: ts.Expression,
-  isExclamation: boolean = false
-): ts.PropertyDeclaration => {
-  return ts.createProperty(
-    undefined,
-    [ts.createModifier(ts.SyntaxKind.ReadonlyKeyword)],
-    name,
-    isExclamation ? ts.createToken(ts.SyntaxKind.ExclamationToken) : undefined,
-    type,
-    inizializer
-  )
-}
-
-const getMethod = (
-  name: string,
-  typeParameters: Array<ts.TypeParameterDeclaration>,
-  parameters: Array<ts.ParameterDeclaration>,
-  returnType: ts.TypeNode,
-  body: ts.Block
-) => {
-  return ts.createMethod(undefined, undefined, undefined, name, undefined, typeParameters, parameters, returnType, body)
-}
-
-const getFoldMethod = (d: M.Data, c: M.Constructor, name: string, isEager: boolean) => {
-  const returnTypeParameterName = getFoldReturnTypeParameterName(d)
-  const handlerExpression = ts.createIdentifier(getFoldHandlerName(c))
-  const returnExpression =
-    M.isNullary(c) && isEager
-      ? handlerExpression
-      : ts.createCall(
-          handlerExpression,
-          undefined,
-          c.members.map((m, position) => {
-            return ts.createPropertyAccess(ts.createThis(), getMemberName(m, position))
-          })
-        )
-  const fold = getMethod(
-    name,
-    [ts.createTypeParameterDeclaration(returnTypeParameterName)],
-    getFoldPositionalHandlers(d, isEager, c),
-    ts.createTypeReferenceNode(returnTypeParameterName, A.empty),
-    ts.createBlock([ts.createReturn(returnExpression)])
-  )
-  return fold
-}
-
-const when = <A>(condition: boolean, f: () => Array<A>): Array<A> => {
-  return condition ? f() : A.empty
-}
-
-const getDataFptsEncoding = (d: M.Data): AST<Array<ts.Node>> => {
-  return new Reader(e => {
-    const isSum = M.isSum(d)
-    const isPolymorphic = M.isPolymorphic(d)
-    const constructors = d.constructors
-
-    const classes = constructors.map(c => {
-      const getStaticValueField = (): Array<ts.PropertyDeclaration> => {
-        return [
-          ts.createProperty(
-            undefined,
-            [ts.createModifier(ts.SyntaxKind.StaticKeyword)],
-            'value',
-            undefined,
-            ts.createTypeReferenceNode(
-              d.name,
-              d.parameterDeclarations.map(_ => ts.createKeywordTypeNode(ts.SyntaxKind.NeverKeyword))
-            ),
-            ts.createNew(ts.createIdentifier(c.name), undefined, A.empty)
-          )
-        ]
-      }
-
-      const getTagField = (): Array<ts.PropertyDeclaration> => {
-        return [
-          getPropertyDeclaration(
-            e.tagName,
-            ts.createLiteralTypeNode(ts.createStringLiteral(c.name)),
-            ts.createStringLiteral(c.name)
-          )
-        ]
-      }
-
-      const getPolymorphicFields = (): Array<ts.PropertyDeclaration> => {
-        const URI = getPropertyDeclaration('_URI', ts.createTypeReferenceNode('URI', A.empty), undefined, true)
-        const len = getDataParametersLength(d)
-        const parameterDeclarations = d.parameterDeclarations.slice().reverse()
-        const fptsParameters = URI2HKTParametersNames.slice(0, len).map((name, i) => {
-          return getPropertyDeclaration(
-            `_${name}`,
-            ts.createTypeReferenceNode(parameterDeclarations[i].name, A.empty),
-            undefined,
-            true
-          )
+/**
+ * @since 0.4.0
+ */
+export function data(d: M.Data): AST<Array<ts.Node>> {
+  return e => {
+    const unionType = ts.createUnionTypeNode(
+      d.constructors.map(c => {
+        const members: Array<ts.TypeElement> = c.members.map((m, position) => {
+          return getPropertySignature(getMemberName(m, position), getTypeNode(m.type))
         })
-        return [...fptsParameters, URI]
-      }
-
-      const isNullary = M.isNullary(c)
-
-      const constructor = ts.createConstructor(
-        undefined,
-        isNullary ? [ts.createModifier(ts.SyntaxKind.PrivateKeyword)] : undefined,
-        c.members.map((m, position) => getParameterDeclaration(getMemberName(m, position), getTypeNode(m.type), true)),
-        ts.createBlock([])
-      )
-
-      const getFoldMethods = (): Array<ts.ClassElement> => {
-        if (isEagerFoldSupported(d)) {
-          return [getFoldMethod(d, c, e.foldName, true), getFoldMethod(d, c, `${e.foldName}L`, false)]
-        } else {
-          return [getFoldMethod(d, c, e.foldName, false)]
-        }
-      }
-
-      const members: Array<ts.ClassElement> = [
-        ...when(isNullary, getStaticValueField),
-        ...when(isSum, getTagField),
-        ...when(isPolymorphic, getPolymorphicFields),
-        constructor,
-        ...when(isSum, getFoldMethods)
-      ]
-
-      return ts.createClassDeclaration(
-        undefined,
-        [ts.createModifier(ts.SyntaxKind.ExportKeyword)],
-        c.name,
-        getDataTypeParameterDeclarations(d),
-        undefined,
-        members
-      )
-    })
-
-    const getModuleAugmentation = (): Array<ts.Node> => {
-      return [
-        getDataModuleDeclaration(d),
-        getConstantDeclaration('URI', ts.createStringLiteral(d.name)),
-        getTypeAliasDeclaration('URI', ts.createTypeQueryNode(ts.createIdentifier('URI')))
-      ]
-    }
-
-    const getTypeAlias = (): Array<ts.Node> => {
-      const unionType = ts.createUnionTypeNode(
-        constructors.map(c => {
-          return ts.createTypeReferenceNode(c.name, getDataTypeParameterReferences(d))
-        })
-      )
-      return [getTypeAliasDeclaration(d.name, unionType, getDataTypeParameterDeclarations(d))]
-    }
-
-    const prelude: Array<ts.Node> = [
-      ...when(isPolymorphic, getModuleAugmentation),
-      ...when(isSum || head(d.constructors).name !== d.name, getTypeAlias)
-    ]
-    return [...prelude, ...classes]
-  })
-}
-
-const getDataParametersLength = (d: M.Data): number => {
-  return d.parameterDeclarations.length
-}
-
-const shouldUseLiteralEncoding = (d: M.Data): AST<boolean> => {
-  return new Reader(e => e.encoding === 'literal' || getDataParametersLength(d) > URI2HKTParametersNames.length)
-}
-
-export const data = (d: M.Data): AST<Array<ts.Node>> => {
-  return shouldUseLiteralEncoding(d).chain(yes => (yes ? getDataLiteralEncoding(d) : getDataFptsEncoding(d)))
+        const tag: ts.TypeElement = getPropertySignature(e.tagName, ts.createLiteralTypeNode(ts.createLiteral(c.name)))
+        return ts.createTypeLiteralNode(M.isSum(d) ? [tag, ...members] : members)
+      })
+    )
+    return [getTypeAliasDeclaration(d.name, unionType, getDataTypeParameterDeclarations(d))]
+  }
 }
 
 const getFirstLetterLowerCase = (name: string): string => {
@@ -407,34 +205,22 @@ const getFunctionDeclaration = (
   )
 }
 
-const getParameterDeclaration = (
-  name: string,
-  type?: ts.TypeNode,
-  isReadonly: boolean = false
-): ts.ParameterDeclaration => {
-  return ts.createParameter(
-    undefined,
-    isReadonly ? [ts.createModifier(ts.SyntaxKind.ReadonlyKeyword)] : undefined,
-    undefined,
-    name,
-    undefined,
-    type,
-    undefined
-  )
+const getParameterDeclaration = (name: string, type?: ts.TypeNode): ts.ParameterDeclaration => {
+  return ts.createParameter(undefined, undefined, undefined, name, undefined, type, undefined)
 }
 
 const getLiteralNullaryConstructor = (c: M.Constructor, d: M.Data): AST<ts.Node> => {
-  return new Reader(e => {
+  return e => {
     const name = getFirstLetterLowerCase(c.name)
     const initializer = ts.createObjectLiteral(
       M.isSum(d) ? [ts.createPropertyAssignment(e.tagName, ts.createStringLiteral(c.name))] : []
     )
     return getConstantDeclaration(name, initializer, getDataTypeReferenceWithNever(d))
-  })
+  }
 }
 
 const getLiteralConstructor = (c: M.Constructor, d: M.Data): AST<ts.Node> => {
-  return new Reader(e => {
+  return e => {
     const name = getFirstLetterLowerCase(c.name)
     const typeParameters = getDataTypeParameterDeclarations(d)
     const parameters = c.members.map((m, position) => {
@@ -456,63 +242,17 @@ const getLiteralConstructor = (c: M.Constructor, d: M.Data): AST<ts.Node> => {
       )
     ])
     return getFunctionDeclaration(name, typeParameters, parameters, getDataType(d), body)
-  })
+  }
 }
 
-const getConstructorsLiteralEncoding = (d: M.Data): AST<Array<ts.Node>> => {
+/**
+ * @since 0.4.0
+ */
+export function constructors(d: M.Data): AST<Array<ts.Node>> {
   const constructors = d.constructors.map(c =>
     A.foldLeft(() => getLiteralNullaryConstructor(c, d), () => getLiteralConstructor(c, d))(c.members)
   )
-  return A.array.sequence(reader)(constructors)
-}
-
-const getFptsNullaryConstructor = (c: M.Constructor, d: M.Data): AST<ts.Node> => {
-  return new Reader(_ => {
-    const name = getFirstLetterLowerCase(c.name)
-    const initializer = ts.createPropertyAccess(ts.createIdentifier(c.name), 'value')
-    return getConstantDeclaration(name, initializer, getDataTypeReferenceWithNever(d))
-  })
-}
-
-const getFptsConstructor = (c: M.Constructor, d: M.Data): AST<ts.Node> => {
-  return new Reader(_ => {
-    const name = getFirstLetterLowerCase(c.name)
-    const typeParameters = getDataTypeParameterDeclarations(d)
-    const parameters = c.members.map((m, position) => {
-      const name = getMemberName(m, position)
-      const type = getTypeNode(m.type)
-      return getParameterDeclaration(name, type)
-    })
-    const body = ts.createBlock([
-      ts.createReturn(
-        ts.createNew(
-          ts.createIdentifier(c.name),
-          undefined,
-          c.members.map((m, position) => {
-            return ts.createIdentifier(getMemberName(m, position))
-          })
-        )
-      )
-    ])
-    return getFunctionDeclaration(name, typeParameters, parameters, getDataType(d), body)
-  })
-}
-
-const getConstructorsFptsEncoding = (d: M.Data): AST<Array<ts.Node>> => {
-  const constructors = d.constructors.map(c =>
-    A.foldLeft(() => getFptsNullaryConstructor(c, d), () => getFptsConstructor(c, d))(c.members)
-  )
-  return A.array.sequence(reader)(constructors)
-}
-
-export const constructors = (d: M.Data): AST<Array<ts.Node>> => {
-  return shouldUseLiteralEncoding(d).chain(yes =>
-    yes ? getConstructorsLiteralEncoding(d) : getConstructorsFptsEncoding(d)
-  )
-}
-
-const isEagerFoldSupported = (d: M.Data): boolean => {
-  return d.constructors.some(M.isNullary)
+  return A.array.sequence(R.reader)(constructors)
 }
 
 const getFoldReturnTypeParameterName = (d: M.Data): string => {
@@ -529,46 +269,34 @@ const getFoldHandlerName = (c: M.Constructor): string => {
   return `on${c.name}`
 }
 
-const getFoldPositionalHandlers = (
-  d: M.Data,
-  isEager: boolean,
-  usedConstructor?: M.Constructor
-): Array<ts.ParameterDeclaration> => {
+const getFoldPositionalHandlers = (d: M.Data): Array<ts.ParameterDeclaration> => {
   const returnTypeParameterName = getFoldReturnTypeParameterName(d)
   return d.constructors.map(c => {
-    const type =
-      isEager && M.isNullary(c)
-        ? ts.createTypeReferenceNode(returnTypeParameterName, A.empty)
-        : ts.createFunctionTypeNode(
-            undefined,
-            c.members.map((m, position) => getParameterDeclaration(getMemberName(m, position), getTypeNode(m.type))),
-            ts.createTypeReferenceNode(returnTypeParameterName, A.empty)
-          )
-    const isParameterUnused = usedConstructor !== undefined && usedConstructor !== c
-    const foldHandlerName = isParameterUnused ? `_${getFoldHandlerName(c)}` : getFoldHandlerName(c)
-    return getParameterDeclaration(foldHandlerName, type)
+    const type = ts.createFunctionTypeNode(
+      undefined,
+      c.members.map((m, position) => getParameterDeclaration(getMemberName(m, position), getTypeNode(m.type))),
+      ts.createTypeReferenceNode(returnTypeParameterName, A.empty)
+    )
+    return getParameterDeclaration(getFoldHandlerName(c), type)
   })
 }
 
-const getFoldRecordHandlers = (d: M.Data, handlersName: string, isEager: boolean): Array<ts.ParameterDeclaration> => {
+const getFoldRecordHandlers = (d: M.Data, handlersName: string): Array<ts.ParameterDeclaration> => {
   const returnTypeParameterName = getFoldReturnTypeParameterName(d)
   const type = ts.createTypeLiteralNode(
     d.constructors.map(c => {
-      const type =
-        isEager && M.isNullary(c)
-          ? ts.createTypeReferenceNode(returnTypeParameterName, A.empty)
-          : ts.createFunctionTypeNode(
-              undefined,
-              c.members.map((m, position) => getParameterDeclaration(getMemberName(m, position), getTypeNode(m.type))),
-              ts.createTypeReferenceNode(returnTypeParameterName, A.empty)
-            )
+      const type = ts.createFunctionTypeNode(
+        undefined,
+        c.members.map((m, position) => getParameterDeclaration(getMemberName(m, position), getTypeNode(m.type))),
+        ts.createTypeReferenceNode(returnTypeParameterName, A.empty)
+      )
       return getPropertySignature(getFoldHandlerName(c), type, false)
     })
   )
   return [getParameterDeclaration(handlersName, type)]
 }
 
-const getFoldPositionalBody = (d: M.Data, matcheeName: string, tagName: string, isEager: boolean) => {
+const getFoldPositionalBody = (d: M.Data, matcheeName: string, tagName: string) => {
   return ts.createBlock([
     ts.createSwitch(
       ts.createPropertyAccess(ts.createIdentifier(matcheeName), tagName),
@@ -577,15 +305,13 @@ const getFoldPositionalBody = (d: M.Data, matcheeName: string, tagName: string, 
           const access = ts.createIdentifier(getFoldHandlerName(c))
           return ts.createCaseClause(ts.createStringLiteral(c.name), [
             ts.createReturn(
-              isEager && M.isNullary(c)
-                ? access
-                : ts.createCall(
-                    access,
-                    A.empty,
-                    c.members.map((m, position) => {
-                      return ts.createPropertyAccess(ts.createIdentifier(matcheeName), getMemberName(m, position))
-                    })
-                  )
+              ts.createCall(
+                access,
+                A.empty,
+                c.members.map((m, position) => {
+                  return ts.createPropertyAccess(ts.createIdentifier(matcheeName), getMemberName(m, position))
+                })
+              )
             )
           ])
         })
@@ -594,7 +320,7 @@ const getFoldPositionalBody = (d: M.Data, matcheeName: string, tagName: string, 
   ])
 }
 
-const getFoldRecordBody = (d: M.Data, matcheeName: string, tagName: string, handlersName: string, isEager: boolean) => {
+const getFoldRecordBody = (d: M.Data, matcheeName: string, tagName: string, handlersName: string) => {
   return ts.createBlock([
     ts.createSwitch(
       ts.createPropertyAccess(ts.createIdentifier(matcheeName), tagName),
@@ -603,15 +329,13 @@ const getFoldRecordBody = (d: M.Data, matcheeName: string, tagName: string, hand
           const access = ts.createPropertyAccess(ts.createIdentifier(handlersName), getFoldHandlerName(c))
           return ts.createCaseClause(ts.createStringLiteral(c.name), [
             ts.createReturn(
-              isEager && M.isNullary(c)
-                ? access
-                : ts.createCall(
-                    access,
-                    A.empty,
-                    c.members.map((m, position) => {
-                      return ts.createPropertyAccess(ts.createIdentifier(matcheeName), getMemberName(m, position))
-                    })
-                  )
+              ts.createCall(
+                access,
+                A.empty,
+                c.members.map((m, position) => {
+                  return ts.createPropertyAccess(ts.createIdentifier(matcheeName), getMemberName(m, position))
+                })
+              )
             )
           ])
         })
@@ -620,9 +344,9 @@ const getFoldRecordBody = (d: M.Data, matcheeName: string, tagName: string, hand
   ])
 }
 
-const getFold = (d: M.Data, name: string, isEager: boolean): AST<ts.FunctionDeclaration> => {
-  return new Reader(e => {
-    const matcheeName = e.matcheeName
+const getFold = (d: M.Data, name: string): AST<ts.FunctionDeclaration> => {
+  return e => {
+    const matcheeName = 'fa'
     const tagName = e.tagName
     const handlersStyle = e.handlersStyle
     const returnTypeParameterName = getFoldReturnTypeParameterName(d)
@@ -630,35 +354,49 @@ const getFold = (d: M.Data, name: string, isEager: boolean): AST<ts.FunctionDecl
       ...getDataTypeParameterDeclarations(d),
       ts.createTypeParameterDeclaration(returnTypeParameterName)
     ]
-    const matchee = getParameterDeclaration(matcheeName, getDataType(d))
     const handlers =
       handlersStyle.type === 'positional'
-        ? getFoldPositionalHandlers(d, isEager)
-        : getFoldRecordHandlers(d, handlersStyle.handlersName, isEager)
-    const parameters = [matchee, ...handlers]
-    const returnType = ts.createTypeReferenceNode(returnTypeParameterName, A.empty)
-    const body =
+        ? getFoldPositionalHandlers(d)
+        : getFoldRecordHandlers(d, handlersStyle.handlersName)
+    const matchee = getParameterDeclaration(matcheeName, getDataType(d))
+    const returnType = ts.createFunctionTypeNode(
+      [],
+      [matchee],
+      ts.createTypeReferenceNode(returnTypeParameterName, A.empty)
+    )
+    const body = ts.createArrowFunction(
+      [],
+      [],
+      [getParameterDeclaration(matcheeName)],
+      undefined,
+      undefined,
       handlersStyle.type === 'positional'
-        ? getFoldPositionalBody(d, matcheeName, tagName, isEager)
-        : getFoldRecordBody(d, matcheeName, tagName, handlersStyle.handlersName, isEager)
-    return getFunctionDeclaration(name, typeParameterDeclarations, parameters, returnType, body)
-  })
+        ? getFoldPositionalBody(d, matcheeName, tagName)
+        : getFoldRecordBody(d, matcheeName, tagName, handlersStyle.handlersName)
+    )
+    return getFunctionDeclaration(
+      name,
+      typeParameterDeclarations,
+      handlers,
+      returnType,
+      ts.createBlock([ts.createReturn(body)])
+    )
+  }
 }
 
-export const folds = (d: M.Data): AST<Array<ts.FunctionDeclaration>> => {
-  return ask<Options>().chain(e => {
-    let folds: Array<AST<ts.FunctionDeclaration>> = A.empty
-    if (e.encoding === 'literal') {
-      if (M.isSum(d)) {
-        if (isEagerFoldSupported(d)) {
-          folds = [getFold(d, e.foldName, true), getFold(d, `${e.foldName}L`, false)]
-        } else {
-          folds = [getFold(d, e.foldName, false)]
-        }
-      }
-    }
-    return A.array.sequence(reader)(folds)
-  })
+/**
+ * @since 0.4.0
+ */
+export function fold(d: M.Data): AST<O.Option<ts.FunctionDeclaration>> {
+  if (!M.isSum(d)) {
+    return R.of(O.none)
+  } else {
+    return pipe(
+      R.ask<Options>(),
+      R.chain(e => getFold(d, e.foldName)),
+      R.map(O.some)
+    )
+  }
 }
 
 const getImportDeclaration = (namedImports: Array<string>, from: string): ts.ImportDeclaration => {
@@ -684,40 +422,46 @@ const getArrowFunction = (parameters: Array<string>, body: ts.ConciseBody) => {
   )
 }
 
-export const prisms = (d: M.Data): AST<Array<ts.Node>> => {
-  return ask<Options>().chain(e => {
-    if (!M.isSum(d)) {
-      return reader.of(A.empty)
-    }
-    const dataType = getDataType(d)
-    const type = ts.createTypeReferenceNode('Prism', [dataType, dataType])
-    const getPrism = (name: string) => {
-      return ts.createCall(ts.createPropertyAccess(ts.createIdentifier('Prism'), 'fromPredicate'), A.empty, [
-        getArrowFunction(
-          ['s'],
-          getStrictEquals(ts.createPropertyAccess(ts.createIdentifier('s'), e.tagName), ts.createStringLiteral(name))
-        )
-      ])
-    }
-    const monocleImport = getImportDeclaration(['Prism'], 'monocle-ts')
-    const typeParameters: Array<ts.TypeParameterDeclaration> = getDataTypeParameterDeclarations(d)
-    const constructors = d.constructors
-    if (M.isPolymorphic(d)) {
-      return reader.of([
+/**
+ * @since 0.4.0
+ */
+export function prisms(d: M.Data): AST<Array<ts.Node>> {
+  return pipe(
+    R.ask<Options>(),
+    R.chain(e => {
+      if (!M.isSum(d)) {
+        return R.of(A.empty)
+      }
+      const dataType = getDataType(d)
+      const type = ts.createTypeReferenceNode('Prism', [dataType, dataType])
+      const getPrism = (name: string) => {
+        return ts.createCall(ts.createPropertyAccess(ts.createIdentifier('Prism'), 'fromPredicate'), A.empty, [
+          getArrowFunction(
+            ['s'],
+            getStrictEquals(ts.createPropertyAccess(ts.createIdentifier('s'), e.tagName), ts.createStringLiteral(name))
+          )
+        ])
+      }
+      const monocleImport = getImportDeclaration(['Prism'], 'monocle-ts')
+      const typeParameters: Array<ts.TypeParameterDeclaration> = getDataTypeParameterDeclarations(d)
+      const constructors = d.constructors
+      if (M.isPolymorphic(d)) {
+        return R.of([
+          monocleImport,
+          ...constructors.map<ts.Node>(c => {
+            const body = ts.createBlock([ts.createReturn(getPrism(c.name))])
+            return getFunctionDeclaration(`_${getFirstLetterLowerCase(c.name)}`, typeParameters, A.empty, type, body)
+          })
+        ])
+      }
+      return R.of([
         monocleImport,
-        ...constructors.map<ts.Node>(c => {
-          const body = ts.createBlock([ts.createReturn(getPrism(c.name))])
-          return getFunctionDeclaration(`_${getFirstLetterLowerCase(c.name)}`, typeParameters, A.empty, type, body)
+        ...constructors.map(c => {
+          return getConstantDeclaration(`_${c.name}`, getPrism(c.name), type)
         })
       ])
-    }
-    return reader.of([
-      monocleImport,
-      ...constructors.map(c => {
-        return getConstantDeclaration(`_${c.name}`, getPrism(c.name), type)
-      })
-    ])
-  })
+    })
+  )
 }
 
 const semigroupBinaryExpression: S.Semigroup<ts.Expression> = {
@@ -728,26 +472,29 @@ const getStrictEquals = (left: ts.Expression, right: ts.Expression): ts.BinaryEx
   return ts.createBinary(left, ts.SyntaxKind.EqualsEqualsEqualsToken, right)
 }
 
-export const setoid = (d: M.Data): AST<Array<ts.Node>> => {
+/**
+ * @since 0.4.0
+ */
+export function eq(d: M.Data): AST<Array<ts.Node>> {
   const isSum = M.isSum(d)
   if (!isSum && M.isNullary(head(d.constructors))) {
-    return reader.of(A.empty)
+    return R.of(A.empty)
   }
-  const getMemberSetoidName = (c: M.Constructor, m: M.Member, position: number): string => {
-    let s = 'setoid'
+  const getMemberEqName = (c: M.Constructor, m: M.Member, position: number): string => {
+    let s = 'eq'
     if (isSum) {
       s += c.name
     }
     return s + getFirstLetterUpperCase(getMemberName(m, position))
   }
   const constructors = d.constructors
-  const setoidsParameters = A.array.chain(constructors, c => {
+  const eqsParameters = A.array.chain(constructors, c => {
     return c.members
       .map((m, position) => tuple(m, position))
       .filter(([m]) => !M.isRecursiveMember(m, d))
       .map(([m, position]) => {
-        const type = ts.createTypeReferenceNode('Setoid', [getTypeNode(m.type)])
-        return getParameterDeclaration(getMemberSetoidName(c, m, position), type)
+        const type = ts.createTypeReferenceNode('Eq', [getTypeNode(m.type)])
+        return getParameterDeclaration(getMemberEqName(c, m, position), type)
       })
   })
   const getReturnValue = (c: M.Constructor): ts.Expression => {
@@ -755,47 +502,50 @@ export const setoid = (d: M.Data): AST<Array<ts.Node>> => {
       () => ts.createTrue(),
       () => {
         const callExpressions = c.members.map((m, position) => {
-          const setoidName = M.isRecursiveMember(m, d) ? 'S' : getMemberSetoidName(c, m, position)
+          const eqName = M.isRecursiveMember(m, d) ? 'S' : getMemberEqName(c, m, position)
           const memberName = getMemberName(m, position)
-          return ts.createCall(ts.createPropertyAccess(ts.createIdentifier(setoidName), 'equals'), A.empty, [
+          return ts.createCall(ts.createPropertyAccess(ts.createIdentifier(eqName), 'equals'), A.empty, [
             ts.createPropertyAccess(ts.createIdentifier('x'), memberName),
             ts.createPropertyAccess(ts.createIdentifier('y'), memberName)
           ])
         })
-        return S.fold(semigroupBinaryExpression)(callExpressions[0])(callExpressions.slice(1))
+        return S.fold(semigroupBinaryExpression)(callExpressions[0], callExpressions.slice(1))
       }
     )(c.members)
   }
-  return ask<Options>().chain(e => {
-    const setoidImport = getImportDeclaration(['Setoid', 'fromEquals'], 'fp-ts/lib/Setoid')
-    const ifs = [
-      ...constructors.map(c => {
-        return ts.createIf(
-          semigroupBinaryExpression.concat(
-            getStrictEquals(ts.createPropertyAccess(ts.createIdentifier('x'), e.tagName), ts.createLiteral(c.name)),
-            getStrictEquals(ts.createPropertyAccess(ts.createIdentifier('y'), e.tagName), ts.createLiteral(c.name))
-          ),
-          ts.createBlock([ts.createReturn(getReturnValue(c))])
-        )
-      }),
-      ts.createReturn(ts.createFalse())
-    ]
-    const statements: Array<ts.Statement> = []
-    if (isSum) {
-      statements.push(...ifs)
-    } else {
-      statements.push(ts.createReturn(getReturnValue(head(d.constructors))))
-    }
-    const arrowFunction = getArrowFunction(['x', 'y'], ts.createBlock(statements))
-    const setoid = ts.createCall(ts.createIdentifier('fromEquals'), A.empty, [arrowFunction])
-    const returnType = ts.createTypeReferenceNode('Setoid', [getDataType(d)])
-    const body = M.isRecursive(d)
-      ? [getConstantDeclaration('S', setoid, returnType, false), ts.createReturn(ts.createIdentifier('S'))]
-      : [ts.createReturn(setoid)]
-    const typeParameters: Array<ts.TypeParameterDeclaration> = getDataTypeParameterDeclarations(d)
-    return reader.of([
-      setoidImport,
-      getFunctionDeclaration('getSetoid', typeParameters, setoidsParameters, returnType, ts.createBlock(body))
-    ])
-  })
+  return pipe(
+    R.ask<Options>(),
+    R.chain(e => {
+      const eqImport = getImportDeclaration(['Eq', 'fromEquals'], 'fp-ts/lib/Eq')
+      const ifs = [
+        ...constructors.map(c => {
+          return ts.createIf(
+            semigroupBinaryExpression.concat(
+              getStrictEquals(ts.createPropertyAccess(ts.createIdentifier('x'), e.tagName), ts.createLiteral(c.name)),
+              getStrictEquals(ts.createPropertyAccess(ts.createIdentifier('y'), e.tagName), ts.createLiteral(c.name))
+            ),
+            ts.createBlock([ts.createReturn(getReturnValue(c))])
+          )
+        }),
+        ts.createReturn(ts.createFalse())
+      ]
+      const statements: Array<ts.Statement> = []
+      if (isSum) {
+        statements.push(...ifs)
+      } else {
+        statements.push(ts.createReturn(getReturnValue(head(d.constructors))))
+      }
+      const arrowFunction = getArrowFunction(['x', 'y'], ts.createBlock(statements))
+      const eq = ts.createCall(ts.createIdentifier('fromEquals'), A.empty, [arrowFunction])
+      const returnType = ts.createTypeReferenceNode('Eq', [getDataType(d)])
+      const body = M.isRecursive(d)
+        ? [getConstantDeclaration('S', eq, returnType, false), ts.createReturn(ts.createIdentifier('S'))]
+        : [ts.createReturn(eq)]
+      const typeParameters: Array<ts.TypeParameterDeclaration> = getDataTypeParameterDeclarations(d)
+      return R.of([
+        eqImport,
+        getFunctionDeclaration('getEq', typeParameters, eqsParameters, returnType, ts.createBlock(body))
+      ])
+    })
+  )
 }

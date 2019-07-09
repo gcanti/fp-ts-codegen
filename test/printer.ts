@@ -74,7 +74,7 @@ describe('printer', () => {
         const data = M.data(
           'Tuple',
           [],
-          M.constructor('Tuple', [M.member(M.fun(M.tuple([M.ref('A'), M.ref('B')]), M.ref('C')))])
+          [M.constructor('Tuple', [M.member(M.fun(M.tuple([M.ref('A'), M.ref('B')]), M.ref('C')))])]
         )
         assertPrinterEqual(
           P.data,
@@ -89,7 +89,7 @@ describe('printer', () => {
         const data = M.data(
           'Function',
           [],
-          M.constructor('Function', [M.member(M.fun(M.fun(M.ref('A'), M.ref('B')), M.ref('C')))])
+          [M.constructor('Function', [M.member(M.fun(M.fun(M.ref('A'), M.ref('B')), M.ref('C')))])]
         )
         assertPrinterEqual(
           P.data,
@@ -111,7 +111,7 @@ describe('printer', () => {
       })
 
       it('unit field', () => {
-        const data = M.data('Unit', [], M.constructor('Unit', [M.member(M.unit)]))
+        const data = M.data('Unit', [], [M.constructor('Unit', [M.member(M.unit)])])
         assertPrinterEqual(
           P.data,
           data,
@@ -205,212 +205,51 @@ describe('printer', () => {
       it('monomorphic nullary constructor', () => {
         assertPrinterEqual(P.constructors, E.Nullary, ['export const nullary: Nullary = {};'])
       })
-    })
-  })
-
-  const fptsEncodingOptions = lenses.encoding.set('fp-ts')(defaultOptions)
-
-  describe('fp-ts encoding', () => {
-    describe('data', () => {
-      it('not a sum type', () => {
-        assertPrinterEqual(
-          P.data,
-          E.User,
-          `export class User {
-    constructor(readonly name: string, readonly surname: string, readonly age: number) { }
-}`,
-          fptsEncodingOptions
-        )
-      })
-
-      it('not aligned names', () => {
-        assertPrinterEqual(
-          P.data,
-          E.NotAlignedNames,
-          `export type NotAlignedNames = Ctor;
-
-export class Ctor {
-    constructor(readonly value: string) { }
-}`,
-          fptsEncodingOptions
-        )
-      })
-
-      it('eager fold not supported', () => {
-        assertPrinterEqual(
-          P.data,
-          E.Either,
-          `declare module "fp-ts/lib/HKT" {
-    interface URI2HKT2<L, A> {
-        Either: Either<L, A>;
-    }
-}
-
-export const URI = "Either";
-
-export type URI = typeof URI;
-
-export type Either<E, R> = Left<E, R> | Right<E, R>;
-
-export class Left<E, R> {
-    readonly type: "Left" = "Left";
-    readonly _A!: R;
-    readonly _L!: E;
-    readonly _URI!: URI;
-    constructor(readonly value0: E) { }
-    fold<R1>(onLeft: (value0: E) => R1, _onRight: (value0: R) => R1): R1 { return onLeft(this.value0); }
-}
-
-export class Right<E, R> {
-    readonly type: "Right" = "Right";
-    readonly _A!: R;
-    readonly _L!: E;
-    readonly _URI!: URI;
-    constructor(readonly value0: R) { }
-    fold<R1>(_onLeft: (value0: E) => R1, onRight: (value0: R) => R1): R1 { return onRight(this.value0); }
-}`,
-          fptsEncodingOptions
-        )
-      })
-
-      it('unconstrained data', () => {
-        assertPrinterEqual(
-          P.data,
-          E.Option,
-          `declare module "fp-ts/lib/HKT" {
-    interface URI2HKT<A> {
-        Option: Option<A>;
-    }
-}
-
-export const URI = "Option";
-
-export type URI = typeof URI;
-
-export type Option<A> = None<A> | Some<A>;
-
-export class None<A> {
-    static value: Option<never> = new None();
-    readonly type: "None" = "None";
-    readonly _A!: A;
-    readonly _URI!: URI;
-    private constructor() { }
-    fold<R>(onNone: R, _onSome: (value0: A) => R): R { return onNone; }
-    foldL<R>(onNone: () => R, _onSome: (value0: A) => R): R { return onNone(); }
-}
-
-export class Some<A> {
-    readonly type: "Some" = "Some";
-    readonly _A!: A;
-    readonly _URI!: URI;
-    constructor(readonly value0: A) { }
-    fold<R>(_onNone: R, onSome: (value0: A) => R): R { return onSome(this.value0); }
-    foldL<R>(_onNone: () => R, onSome: (value0: A) => R): R { return onSome(this.value0); }
-}`,
-          fptsEncodingOptions
-        )
-      })
 
       it('constrained data', () => {
-        assertPrinterEqual(
-          P.data,
-          E.Constrained,
-          `declare module "fp-ts/lib/HKT" {
-    interface URI2HKT<A> {
-        Constrained: Constrained<A>;
-    }
-}
-
-export const URI = "Constrained";
-
-export type URI = typeof URI;
-
-export type Constrained<A extends string> = Fetching<A> | GotData<A>;
-
-export class Fetching<A extends string> {
-    static value: Constrained<never> = new Fetching();
-    readonly type: "Fetching" = "Fetching";
-    readonly _A!: A;
-    readonly _URI!: URI;
-    private constructor() { }
-    fold<R>(onFetching: R, _onGotData: (value0: A) => R): R { return onFetching; }
-    foldL<R>(onFetching: () => R, _onGotData: (value0: A) => R): R { return onFetching(); }
-}
-
-export class GotData<A extends string> {
-    readonly type: "GotData" = "GotData";
-    readonly _A!: A;
-    readonly _URI!: URI;
-    constructor(readonly value0: A) { }
-    fold<R>(_onFetching: R, onGotData: (value0: A) => R): R { return onGotData(this.value0); }
-    foldL<R>(_onFetching: () => R, onGotData: (value0: A) => R): R { return onGotData(this.value0); }
-}`,
-          fptsEncodingOptions
-        )
-      })
-    })
-
-    describe('constructors', () => {
-      it('unconstrained data', () => {
-        assertPrinterEqual(
-          P.constructors,
-          E.Option,
-          [
-            'export const none: Option<never> = None.value;',
-            'export function some<A>(value0: A): Option<A> { return new Some(value0); }'
-          ],
-          fptsEncodingOptions
-        )
-      })
-
-      it('constrained data', () => {
-        assertPrinterEqual(
-          P.constructors,
-          E.Constrained,
-          [
-            'export const fetching: Constrained<string> = Fetching.value;',
-            'export function gotData<A extends string>(value0: A): Constrained<A> { return new GotData(value0); }'
-          ],
-          fptsEncodingOptions
-        )
+        assertPrinterEqual(P.constructors, E.Constrained, [
+          'export const fetching: Constrained<string> = { type: "Fetching" };',
+          'export function gotData<A extends string>(value0: A): Constrained<A> { return { type: "GotData", value0 }; }'
+        ])
       })
     })
   })
 
-  describe('folds', () => {
+  describe('fold', () => {
     it('positional fields', () => {
-      assertPrinterEqual(P.folds, E.Option, [
-        'export function fold<A, R>(fa: Option<A>, onNone: R, onSome: (value0: A) => R): R { switch (fa.type) {\n    case "None": return onNone;\n    case "Some": return onSome(fa.value0);\n} }',
-        'export function foldL<A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) => R): R { switch (fa.type) {\n    case "None": return onNone();\n    case "Some": return onSome(fa.value0);\n} }'
-      ])
+      assertPrinterEqual(
+        P.fold,
+        E.Option,
+        'export function fold<A, R>(onNone: () => R, onSome: (value0: A) => R): (fa: Option<A>) => R { return fa => { switch (fa.type) {\n    case "None": return onNone();\n    case "Some": return onSome(fa.value0);\n} }; }'
+      )
     })
 
     it('record fields', () => {
-      assertPrinterEqual(P.folds, E.Maybe, [
-        'export function fold<A, R>(fa: Maybe<A>, onNothing: R, onJust: (value: A) => R): R { switch (fa.type) {\n    case "Nothing": return onNothing;\n    case "Just": return onJust(fa.value);\n} }',
-        'export function foldL<A, R>(fa: Maybe<A>, onNothing: () => R, onJust: (value: A) => R): R { switch (fa.type) {\n    case "Nothing": return onNothing();\n    case "Just": return onJust(fa.value);\n} }'
-      ])
+      assertPrinterEqual(
+        P.fold,
+        E.Maybe,
+        'export function fold<A, R>(onNothing: () => R, onJust: (value: A) => R): (fa: Maybe<A>) => R { return fa => { switch (fa.type) {\n    case "Nothing": return onNothing();\n    case "Just": return onJust(fa.value);\n} }; }'
+      )
     })
 
     it('should not emit a fold if data is not a sum type', () => {
-      assertPrinterEqual(P.folds, E.User, [])
+      assertPrinterEqual(P.fold, E.User, '')
     })
 
-    it('should not emit a fold if all constructors are not nullary', () => {
-      assertPrinterEqual(P.folds, E.Either, [
-        'export function fold<E, R, R1>(fa: Either<E, R>, onLeft: (value0: E) => R1, onRight: (value0: R) => R1): R1 { switch (fa.type) {\n    case "Left": return onLeft(fa.value0);\n    case "Right": return onRight(fa.value0);\n} }'
-      ])
+    it('should choose a good return type parameter', () => {
+      assertPrinterEqual(
+        P.fold,
+        E.Either,
+        'export function fold<E, R, R1>(onLeft: (value0: E) => R1, onRight: (value0: R) => R1): (fa: Either<E, R>) => R1 { return fa => { switch (fa.type) {\n    case "Left": return onLeft(fa.value0);\n    case "Right": return onRight(fa.value0);\n} }; }'
+      )
     })
 
     it('should handle monomorphic data', () => {
-      assertPrinterEqual(P.folds, E.FooBarBaz, [
-        'export function fold<R>(fa: FooBarBaz, onFoo: R, onBar: R, onBaz: R): R { switch (fa.type) {\n    case "Foo": return onFoo;\n    case "Bar": return onBar;\n    case "Baz": return onBaz;\n} }',
-        'export function foldL<R>(fa: FooBarBaz, onFoo: () => R, onBar: () => R, onBaz: () => R): R { switch (fa.type) {\n    case "Foo": return onFoo();\n    case "Bar": return onBar();\n    case "Baz": return onBaz();\n} }'
-      ])
-    })
-
-    it('should not output any fold function when the encodig is fp-ts', () => {
-      assertPrinterEqual(P.folds, E.Option, [], fptsEncodingOptions)
+      assertPrinterEqual(
+        P.fold,
+        E.FooBarBaz,
+        'export function fold<R>(onFoo: () => R, onBar: () => R, onBaz: () => R): (fa: FooBarBaz) => R { return fa => { switch (fa.type) {\n    case "Foo": return onFoo();\n    case "Bar": return onBar();\n    case "Baz": return onBaz();\n} }; }'
+      )
     })
   })
 
@@ -429,29 +268,29 @@ export class GotData<A extends string> {
     })
   })
 
-  describe('setoid', () => {
+  describe('eq', () => {
     it('should handle monomorphic data', () => {
-      assertPrinterEqual(P.setoid, E.FooBarBaz, [
-        'import { Setoid, fromEquals } from "fp-ts/lib/Setoid";',
-        'export function getSetoid(): Setoid<FooBarBaz> { return fromEquals((x, y) => { if (x.type === "Foo" && y.type === "Foo") {\n    return true;\n} if (x.type === "Bar" && y.type === "Bar") {\n    return true;\n} if (x.type === "Baz" && y.type === "Baz") {\n    return true;\n} return false; }); }'
+      assertPrinterEqual(P.eq, E.FooBarBaz, [
+        'import { Eq, fromEquals } from "fp-ts/lib/Eq";',
+        'export function getEq(): Eq<FooBarBaz> { return fromEquals((x, y) => { if (x.type === "Foo" && y.type === "Foo") {\n    return true;\n} if (x.type === "Bar" && y.type === "Bar") {\n    return true;\n} if (x.type === "Baz" && y.type === "Baz") {\n    return true;\n} return false; }); }'
       ])
     })
 
     it('should handle monomorphic nullary', () => {
-      assertPrinterEqual(P.setoid, E.Nullary, [])
+      assertPrinterEqual(P.eq, E.Nullary, [])
     })
 
     it('should handle non sum types', () => {
-      assertPrinterEqual(P.setoid, E.User, [
-        'import { Setoid, fromEquals } from "fp-ts/lib/Setoid";',
-        'export function getSetoid(setoidName: Setoid<string>, setoidSurname: Setoid<string>, setoidAge: Setoid<number>): Setoid<User> { return fromEquals((x, y) => { return setoidName.equals(x.name, y.name) && setoidSurname.equals(x.surname, y.surname) && setoidAge.equals(x.age, y.age); }); }'
+      assertPrinterEqual(P.eq, E.User, [
+        'import { Eq, fromEquals } from "fp-ts/lib/Eq";',
+        'export function getEq(eqName: Eq<string>, eqSurname: Eq<string>, eqAge: Eq<number>): Eq<User> { return fromEquals((x, y) => { return eqName.equals(x.name, y.name) && eqSurname.equals(x.surname, y.surname) && eqAge.equals(x.age, y.age); }); }'
       ])
     })
 
     it('should handle recursive data structures', () => {
-      assertPrinterEqual(P.setoid, E.Tree, [
-        'import { Setoid, fromEquals } from "fp-ts/lib/Setoid";',
-        'export function getSetoid<A>(setoidNodeValue1: Setoid<A>): Setoid<Tree<A>> { const S: Setoid<Tree<A>> = fromEquals((x, y) => { if (x.type === "Leaf" && y.type === "Leaf") {\n    return true;\n} if (x.type === "Node" && y.type === "Node") {\n    return S.equals(x.value0, y.value0) && setoidNodeValue1.equals(x.value1, y.value1) && S.equals(x.value2, y.value2);\n} return false; }); return S; }'
+      assertPrinterEqual(P.eq, E.Tree, [
+        'import { Eq, fromEquals } from "fp-ts/lib/Eq";',
+        'export function getEq<A>(eqNodeValue1: Eq<A>): Eq<Tree<A>> { const S: Eq<Tree<A>> = fromEquals((x, y) => { if (x.type === "Leaf" && y.type === "Leaf") {\n    return true;\n} if (x.type === "Node" && y.type === "Node") {\n    return S.equals(x.value0, y.value0) && eqNodeValue1.equals(x.value1, y.value1) && S.equals(x.value2, y.value2);\n} return false; }); return S; }'
       ])
     })
   })
@@ -460,7 +299,7 @@ export class GotData<A extends string> {
     it('should handle custom tag names', () => {
       const printer = P.print
       assert.strictEqual(
-        printer(E.Option, lenses.tagName.set('tag')(defaultOptions)),
+        printer(lenses.tagName.set('tag')(defaultOptions))(E.Option),
         `export type Option<A> = {
     readonly tag: "None";
 } | {
@@ -472,15 +311,10 @@ export const none: Option<never> = { tag: "None" };
 
 export function some<A>(value0: A): Option<A> { return { tag: "Some", value0 }; }
 
-export function fold<A, R>(fa: Option<A>, onNone: R, onSome: (value0: A) => R): R { switch (fa.tag) {
-    case "None": return onNone;
-    case "Some": return onSome(fa.value0);
-} }
-
-export function foldL<A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) => R): R { switch (fa.tag) {
+export function fold<A, R>(onNone: () => R, onSome: (value0: A) => R): (fa: Option<A>) => R { return fa => { switch (fa.tag) {
     case "None": return onNone();
     case "Some": return onSome(fa.value0);
-} }
+} }; }
 
 import { Prism } from "monocle-ts";
 
@@ -488,72 +322,39 @@ export function _none<A>(): Prism<Option<A>, Option<A>> { return Prism.fromPredi
 
 export function _some<A>(): Prism<Option<A>, Option<A>> { return Prism.fromPredicate(s => s.tag === "Some"); }
 
-import { Setoid, fromEquals } from \"fp-ts/lib/Setoid\";
+import { Eq, fromEquals } from \"fp-ts/lib/Eq\";
 
-export function getSetoid<A>(setoidSomeValue0: Setoid<A>): Setoid<Option<A>> { return fromEquals((x, y) => { if (x.tag === "None" && y.tag === "None") {
+export function getEq<A>(eqSomeValue0: Eq<A>): Eq<Option<A>> { return fromEquals((x, y) => { if (x.tag === "None" && y.tag === "None") {
     return true;
 } if (x.tag === "Some" && y.tag === "Some") {
-    return setoidSomeValue0.equals(x.value0, y.value0);
+    return eqSomeValue0.equals(x.value0, y.value0);
 } return false; }); }`
       )
     })
 
     it('should handle custom fold names', () => {
       assertPrinterEqual(
-        P.folds,
+        P.fold,
         E.Option,
-        [
-          `export function match<A, R>(fa: Option<A>, onNone: R, onSome: (value0: A) => R): R { switch (fa.type) {
-    case "None": return onNone;
-    case "Some": return onSome(fa.value0);
-} }`,
-          `export function matchL<A, R>(fa: Option<A>, onNone: () => R, onSome: (value0: A) => R): R { switch (fa.type) {
+        `export function match<A, R>(onNone: () => R, onSome: (value0: A) => R): (fa: Option<A>) => R { return fa => { switch (fa.type) {
     case "None": return onNone();
     case "Some": return onSome(fa.value0);
-} }`
-        ],
+} }; }`,
         lenses.foldName.set('match')(defaultOptions)
-      )
-    })
-
-    it('should handle custom matchee name', () => {
-      assertPrinterEqual(
-        P.folds,
-        E.Option,
-        [
-          `export function fold<A, R>(input: Option<A>, onNone: R, onSome: (value0: A) => R): R { switch (input.type) {
-    case "None": return onNone;
-    case "Some": return onSome(input.value0);
-} }`,
-          `export function foldL<A, R>(input: Option<A>, onNone: () => R, onSome: (value0: A) => R): R { switch (input.type) {
-    case "None": return onNone();
-    case "Some": return onSome(input.value0);
-} }`
-        ],
-        lenses.matcheeName.set('input')(defaultOptions)
       )
     })
 
     it('should handle handlersName handlersStyle', () => {
       assertPrinterEqual(
-        P.folds,
+        P.fold,
         E.Option,
-        [
-          `export function fold<A, R>(fa: Option<A>, clauses: {
-    onNone: R;
-    onSome: (value0: A) => R;
-}): R { switch (fa.type) {
-    case "None": return clauses.onNone;
-    case "Some": return clauses.onSome(fa.value0);
-} }`,
-          `export function foldL<A, R>(fa: Option<A>, clauses: {
+        `export function fold<A, R>(clauses: {
     onNone: () => R;
     onSome: (value0: A) => R;
-}): R { switch (fa.type) {
+}): (fa: Option<A>) => R { return fa => { switch (fa.type) {
     case "None": return clauses.onNone();
     case "Some": return clauses.onSome(fa.value0);
-} }`
-        ],
+} }; }`,
         lenses.handlersStyle.set({ type: 'record', handlersName: 'clauses' })(defaultOptions)
       )
     })

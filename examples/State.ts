@@ -4,7 +4,9 @@ export type State<S, A> = {
 
 export function state<S, A>(value0: (s: S) => [A, S]): State<S, A> { return { value0 }; }
 
-import { Setoid, fromEquals } from "fp-ts/lib/Setoid";
 
-export function getSetoid<S, A>(setoidValue0: Setoid<(s: S) => [A, S]>): Setoid<State<S, A>> { return fromEquals((x, y) => { return setoidValue0.equals(x.value0, y.value0); }); }
+
+import { Eq, fromEquals } from "fp-ts/lib/Eq";
+
+export function getEq<S, A>(eqValue0: Eq<(s: S) => [A, S]>): Eq<State<S, A>> { return fromEquals((x, y) => { return eqValue0.equals(x.value0, y.value0); }); }
 

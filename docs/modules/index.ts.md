@@ -17,5 +17,7 @@ parent: Modules
 **Signature**
 
 ```ts
-export function run(input: string, options: Options = defaultOptions): Either<string, string> { ... }
+export function run(input: string, options: Options = defaultOptions): E.Either<string, string> { ... }
 ```
+
+Added in v0.4.0

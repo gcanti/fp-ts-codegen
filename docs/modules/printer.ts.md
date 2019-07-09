@@ -13,11 +13,11 @@ parent: Modules
 - [ast (function)](#ast-function)
 - [constructors (function)](#constructors-function)
 - [data (function)](#data-function)
-- [folds (function)](#folds-function)
+- [eq (function)](#eq-function)
+- [fold (function)](#fold-function)
 - [getMonoid (function)](#getmonoid-function)
 - [print (function)](#print-function)
 - [prisms (function)](#prisms-function)
-- [setoid (function)](#setoid-function)
 
 ---
 
@@ -26,77 +26,97 @@ parent: Modules
 **Signature**
 
 ```ts
-export interface Printer<A> extends Reader<Ast.Options, A> {}
+export interface Printer<A> extends R.Reader<Ast.Options, A> {}
 ```
+
+Added in v0.4.0
 
 # all (function)
 
 **Signature**
 
 ```ts
-export const all = (d: M.Data): Printer<Array<string>> => ...
+export function all(d: M.Data): Printer<Array<string>> { ... }
 ```
+
+Added in v0.4.0
 
 # ast (function)
 
 **Signature**
 
 ```ts
-export const ast = (ast: ts.Node): string => ...
+export function ast(ast: ts.Node): string { ... }
 ```
+
+Added in v0.4.0
 
 # constructors (function)
 
 **Signature**
 
 ```ts
-export const constructors = (d: M.Data): Printer<Array<string>> => ...
+export function constructors(d: M.Data): Printer<Array<string>> { ... }
 ```
+
+Added in v0.4.0
 
 # data (function)
 
 **Signature**
 
 ```ts
-export const data = (d: M.Data): Printer<string> => ...
+export function data(d: M.Data): Printer<string> { ... }
 ```
 
-# folds (function)
+Added in v0.4.0
+
+# eq (function)
 
 **Signature**
 
 ```ts
-export const folds = (d: M.Data): Printer<Array<string>> => ...
+export function eq(d: M.Data): Printer<Array<string>> { ... }
 ```
+
+Added in v0.4.0
+
+# fold (function)
+
+**Signature**
+
+```ts
+export function fold(d: M.Data): Printer<string> { ... }
+```
+
+Added in v0.4.0
 
 # getMonoid (function)
 
 **Signature**
 
 ```ts
-export const getMonoid = <A>(M: Mon.Monoid<A>): Mon.Monoid<Printer<A>> => ...
+export function getMonoid<A>(M: Mon.Monoid<A>): Mon.Monoid<Printer<A>> { ... }
 ```
+
+Added in v0.4.0
 
 # print (function)
 
 **Signature**
 
 ```ts
-export const print = (d: M.Data, options: Ast.Options): string => ...
+export function print(options: Ast.Options): (d: M.Data) => string { ... }
 ```
+
+Added in v0.4.0
 
 # prisms (function)
 
 **Signature**
 
 ```ts
-export const prisms = (d: M.Data): Printer<Array<string>> => ...
+export function prisms(d: M.Data): Printer<Array<string>> { ... }
 ```
 
-# setoid (function)
-
-**Signature**
-
-```ts
-export const setoid = (d: M.Data): Printer<Array<string>> => ...
-```
+Added in v0.4.0

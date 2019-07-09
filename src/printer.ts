@@ -1,13 +1,21 @@
 import * as ts from 'typescript'
 import * as Ast from './ast'
 import * as M from './model'
-import { Reader, reader } from 'fp-ts/lib/Reader'
+import * as R from 'fp-ts/lib/Reader'
 import * as Mon from 'fp-ts/lib/Monoid'
 import * as A from 'fp-ts/lib/Array'
+import * as O from 'fp-ts/lib/Option'
+import { pipe } from 'fp-ts/lib/pipeable'
 
-export interface Printer<A> extends Reader<Ast.Options, A> {}
+/**
+ * @since 0.4.0
+ */
+export interface Printer<A> extends R.Reader<Ast.Options, A> {}
 
-export const ast = (ast: ts.Node): string => {
+/**
+ * @since 0.4.0
+ */
+export function ast(ast: ts.Node): string {
   const printer = ts.createPrinter({
     newLine: ts.NewLineKind.LineFeed
   })
@@ -15,41 +23,96 @@ export const ast = (ast: ts.Node): string => {
   return printer.printNode(ts.EmitHint.Unspecified, ast, source)
 }
 
-export const data = (d: M.Data): Printer<string> => {
-  return Ast.data(d).map(declarations => declarations.map(ast).join('\n\n'))
+/**
+ * @since 0.4.0
+ */
+export function data(d: M.Data): Printer<string> {
+  return pipe(
+    Ast.data(d),
+    R.map(declarations => declarations.map(ast).join('\n\n'))
+  )
 }
 
-export const constructors = (d: M.Data): Printer<Array<string>> => {
-  return Ast.constructors(d).map(nodes => nodes.map(ast))
+/**
+ * @since 0.4.0
+ */
+export function constructors(d: M.Data): Printer<Array<string>> {
+  return pipe(
+    Ast.constructors(d),
+    R.map(nodes => nodes.map(ast))
+  )
 }
 
-export const folds = (d: M.Data): Printer<Array<string>> => {
-  return Ast.folds(d).map(functionDeclarations => functionDeclarations.map(ast))
+/**
+ * @since 0.4.0
+ */
+export function fold(d: M.Data): Printer<string> {
+  return pipe(
+    Ast.fold(d),
+    R.map(functionDeclaration =>
+      pipe(
+        functionDeclaration,
+        O.map(ast),
+        O.getOrElse(() => '')
+      )
+    )
+  )
 }
 
-export const prisms = (d: M.Data): Printer<Array<string>> => {
-  return Ast.prisms(d).map(nodes => nodes.map(ast))
+/**
+ * @since 0.4.0
+ */
+export function prisms(d: M.Data): Printer<Array<string>> {
+  return pipe(
+    Ast.prisms(d),
+    R.map(nodes => nodes.map(ast))
+  )
 }
 
-export const setoid = (d: M.Data): Printer<Array<string>> => {
-  return Ast.setoid(d).map(nodes => nodes.map(ast))
+/**
+ * @since 0.4.0
+ */
+export function eq(d: M.Data): Printer<Array<string>> {
+  return pipe(
+    Ast.eq(d),
+    R.map(nodes => nodes.map(ast))
+  )
 }
 
-export const getMonoid = <A>(M: Mon.Monoid<A>): Mon.Monoid<Printer<A>> => {
+/**
+ * @since 0.4.0
+ */
+export function getMonoid<A>(M: Mon.Monoid<A>): Mon.Monoid<Printer<A>> {
   return {
-    concat: (x, y) => new Reader(e => M.concat(x.run(e), y.run(e))),
-    empty: reader.of(M.empty)
+    concat: (x, y) => e => M.concat(x(e), y(e)),
+    empty: R.of(M.empty)
   }
 }
 
 const monoidPrinter: Mon.Monoid<Printer<Array<string>>> = getMonoid(A.getMonoid<string>())
 
-export const all = (d: M.Data): Printer<Array<string>> => {
-  return Mon.fold(monoidPrinter)([data(d).map(A.array.of), constructors(d), folds(d), prisms(d), setoid(d)])
+/**
+ * @since 0.4.0
+ */
+export function all(d: M.Data): Printer<Array<string>> {
+  return Mon.fold(monoidPrinter)([
+    pipe(
+      data(d),
+      R.map(A.array.of)
+    ),
+    constructors(d),
+    pipe(
+      fold(d),
+      R.map(s => [s])
+    ),
+    prisms(d),
+    eq(d)
+  ])
 }
 
-export const print = (d: M.Data, options: Ast.Options): string => {
-  return all(d)
-    .run(options)
-    .join('\n\n')
+/**
+ * @since 0.4.0
+ */
+export function print(options: Ast.Options): (d: M.Data) => string {
+  return d => all(d)(options).join('\n\n')
 }

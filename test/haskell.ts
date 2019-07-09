@@ -1,25 +1,25 @@
 import * as assert from 'assert'
-import { Parser } from 'parser-ts'
+import { parser, char as C, stream } from 'parser-ts'
 import * as P from '../src/haskell'
 import * as M from '../src/model'
 import * as E from './examples'
-import { right, left } from 'fp-ts/lib/Either'
+import { right, left, isRight, isLeft } from 'fp-ts/lib/Either'
 import { some } from 'fp-ts/lib/Option'
-import { head } from 'fp-ts/lib/NonEmptyArray2v'
+import { head } from 'fp-ts/lib/NonEmptyArray'
 
-const assertSuccess = <A>(parser: Parser<A>, input: string, expected: A) => {
-  const result = parser.run(input)
-  if (result.isRight()) {
-    assert.deepStrictEqual(result.value[0], expected)
+const assertSuccess = <A>(parser: parser.Parser<C.Char, A>, input: string, expected: A) => {
+  const result = parser(stream.stream(input.split('')))
+  if (isRight(result)) {
+    assert.deepStrictEqual(result.right.value, expected)
   } else {
     throw new Error(`${result} is not a right`)
   }
 }
 
-const assertFailure = <A>(parser: Parser<A>, input: string, expected: string) => {
-  const result = parser.run(input)
-  if (result.isLeft()) {
-    assert.deepStrictEqual(result.value.message, expected)
+const assertFailure = <A>(parser: parser.Parser<C.Char, A>, input: string, expected: string) => {
+  const result = parser(stream.stream(input.split('')))
+  if (isLeft(result)) {
+    assert.deepStrictEqual(result.left.expected.join(', '), expected)
   } else {
     throw new Error(`${result} is not a left`)
   }
@@ -32,8 +32,8 @@ describe('Haskell parser', () => {
     assertSuccess(parser, 'a1', 'a1')
     assertSuccess(parser, 'a\n', 'a')
     assertSuccess(parser, 'a:b', 'a')
-    assertFailure(parser, '', 'Expected an identifier, cannot parse ""')
-    assertFailure(parser, '1', 'Expected an identifier, cannot parse "1"')
+    assertFailure(parser, '', 'an identifier')
+    assertFailure(parser, '1', 'an identifier')
   })
 
   it('parameterDeclaration', () => {
@@ -41,8 +41,8 @@ describe('Haskell parser', () => {
     assertSuccess(parser, 'A', M.parameterDeclaration('A'))
     assertSuccess(parser, '(A :: string)', M.parameterDeclaration('A', some(M.ref('string'))))
     assertSuccess(parser, '( A :: string )', M.parameterDeclaration('A', some(M.ref('string'))))
-    assertFailure(parser, '(A)', 'Expected a parameter, cannot parse ")"')
-    assertFailure(parser, '(A :: )', 'Expected a parameter, cannot parse ")"')
+    assertFailure(parser, '(A)', 'a parameter')
+    assertFailure(parser, '(A :: )', 'a parameter')
   })
 
   it('tuple', () => {
@@ -50,7 +50,7 @@ describe('Haskell parser', () => {
     assertSuccess(parser, '(A, B)', M.tuple([M.ref('A'), M.ref('B')]))
     assertSuccess(parser, '()', M.unit)
     assertSuccess(parser, '(A)', M.ref('A'))
-    assertFailure(parser, '(A,)', 'Expected a tuple, cannot parse ",)"')
+    assertFailure(parser, '(A,)', 'a tuple')
   })
 
   it('functionType', () => {
@@ -58,7 +58,7 @@ describe('Haskell parser', () => {
     assertSuccess(parser, 'A -> B', M.fun(M.ref('A'), M.ref('B')))
     assertSuccess(parser, 'A -> B -> C', M.fun(M.ref('A'), M.fun(M.ref('B'), M.ref('C'))))
     assertSuccess(parser, '(A -> B) -> C', M.fun(M.fun(M.ref('A'), M.ref('B')), M.ref('C')))
-    assertFailure(parser, 'A -> ', 'Expected a function type, cannot parse ""')
+    assertFailure(parser, 'A -> ', 'a function type')
   })
 
   it('type', () => {
@@ -128,7 +128,7 @@ describe('Haskell parser', () => {
     assertFailure(
       parser,
       'data User = User { name :: string, age :: number, tags :: [number, number] }',
-      'Expected a data declaration, cannot parse "{ name :: string, age :: number, tags :: [number, number] }"'
+      'a data declaration'
     )
     // functions
     assertSuccess(parser, 'data State S A = State S -> (A, S)', E.State)
@@ -136,6 +136,13 @@ describe('Haskell parser', () => {
 
   it('parse', () => {
     assert.deepStrictEqual(P.parse('data Option A = None | Some A'), right(E.Option))
-    assert.deepStrictEqual(P.parse('data Option A = '), left('Expected a data declaration, cannot parse ""'))
+    assert.deepStrictEqual(
+      P.parse('data Option A = '),
+      left(
+        `> 1 | data Option A = ` +
+          `
+    |                 ^ Expected: a data declaration`
+      )
+    )
   })
 })
